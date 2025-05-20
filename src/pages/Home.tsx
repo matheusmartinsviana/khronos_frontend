@@ -1,19 +1,16 @@
 import Seo from "@/lib/Seo";
+import metaData from "@/utils/metadata";
 
 export default function Home() {
+    const meta = metaData["/"];
     return (
         <>
             <Seo
-                title="Home - Khronos"
-                description="SFA Khronos Home Page"
-                image="http:/localhost:3000/open-graph-image.jpg"
-                canonical="http://yourdomain.com/"
-                schemaMarkup={{
-                    '@context': 'http://https:/localhost:3000',
-                    '@type': 'WebSite',
-                    name: 'Khronos Home',
-                    url: 'http://https:/localhost:3000/',
-                }}
+                title={meta.title}
+                description={meta.description}
+                image={meta.image}
+                canonical={meta.canonical}
+                schemaMarkup={meta.schemaMarkup}
             />
             <div>
                 <h1>Home</h1>
