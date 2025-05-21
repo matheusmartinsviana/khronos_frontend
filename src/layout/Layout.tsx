@@ -4,17 +4,12 @@ import { AppSidebar } from "../components/shared/AppSidebar";
 
 export default function Layout() {
     return (
-        <div
-        style={{
-            display: "flex",
-            flexDirection: "row",
-            height: "100vh",
-            width: "100vw",
-        }}
-        >
+        <div className="flex flex-row h-[100vh] w-[100vw]">
             <SidebarProvider>
-                <AppSidebar />
-                <SidebarTrigger />
+                <div className="flex justify-center items-center">
+                    <AppSidebar />
+                    <SidebarTrigger />
+                </div>
                 <main>
                     <Outlet />
                 </main>

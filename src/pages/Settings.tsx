@@ -1,8 +1,8 @@
 import Seo from "@/lib/Seo";
 import metaData from "@/utils/metadata";
 
-export default function Home() {
-    const meta = metaData["/"];
+export default function Settings() {
+    const meta = metaData["/configuracoes"];
     return (
         <>
             <Seo
@@ -12,10 +12,7 @@ export default function Home() {
                 canonical={meta.canonical}
                 schemaMarkup={meta.schemaMarkup}
             />
-            <div>
-                <h1>Home</h1>
-                <p>Welcome to the home page!</p>
-            </div>
+            <p>Settings</p>
         </>
-    );
+    )
 }
