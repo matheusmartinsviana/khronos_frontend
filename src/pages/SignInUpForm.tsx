@@ -2,16 +2,14 @@ import React, { useState } from "react";
 
 function SalesSystemWelcome() {
   const [showLogin, setShowLogin] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      { }
       <div className="absolute inset-0 bg-gradient-to-br from-red-700 to-red-900"></div>
 
-      { }
       <div className="absolute inset-0 opacity-10 bg-[url('https://www.heropatterns.com/static/media/hexagons.4be3dbb8.svg')] bg-repeat"></div>
 
-      { }
       <div className="relative z-10 flex items-center justify-center h-full">
         {!showLogin ? (
           <div className="text-center text-white space-y-10 max-w-xl">
@@ -19,7 +17,6 @@ function SalesSystemWelcome() {
               Bem-vindo(a) ao sistema de gerenciamento de vendas!
             </h1>
 
-            { }
             <p className="text-md italic opacity-80">
               Venda mais, gerencie melhor!
             </p>
@@ -38,10 +35,9 @@ function SalesSystemWelcome() {
             </button>
           </div>
         ) : (
-
           <div className="flex w-full h-full">
             {/* Coluna vermelha */}
-            <div className="w-2/5 bg-red-700 text-white flex flex-col justify-center items-center ">
+            <div className="w-2/5 bg-red-700 text-white flex flex-col justify-center items-center">
               <div className="h-9/12 flex flex-col justify-center items-center">
                 <h2 className="text-5xl font-bold text-center">
                   Bem-vindo(a) novamente!
@@ -75,12 +71,15 @@ function SalesSystemWelcome() {
                   </label>
                   <div className="relative">
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       className="w-full p-3 border rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-red-500"
                       placeholder="Sua senha"
                     />
-                    <span className="material-symbols-outlined absolute right-3 top-3 text-gray-400 cursor-pointer">
-                      visibility_off
+                    <span
+                      className="material-symbols-outlined absolute right-3 top-3 text-gray-400 cursor-pointer select-none"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? "visibility_off" : "visibility"}
                     </span>
                   </div>
                 </div>
