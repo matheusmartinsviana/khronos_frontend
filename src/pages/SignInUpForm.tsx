@@ -1,43 +1,15 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
-function SalesSystemWelcome() {
-  const [showLogin, setShowLogin] = useState(false);
+export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-red-700 to-red-900"></div>
-
-      <div className="absolute inset-0 opacity-10 bg-[url('https://www.heropatterns.com/static/media/hexagons.4be3dbb8.svg')] bg-repeat"></div>
-
       <div className="relative z-10 flex items-center justify-center h-full">
-        {!showLogin ? (
-          <div className="text-center text-white space-y-10 max-w-xl">
-            <h1 className="text-4xl font-bold">
-              Bem-vindo(a) ao sistema de gerenciamento de vendas!
-            </h1>
 
-            <p className="text-md italic opacity-80">
-              Venda mais, gerencie melhor!
-            </p>
-
-            <p className="text-lg leading-relaxed">
-              Aqui você poderá acompanhar suas transações, gerenciar produtos,
-              analisar relatórios e otimizar seus resultados de forma simples e
-              eficiente.
-            </p>
-
-            <button
-              onClick={() => setShowLogin(true)}
-              className="w-56 h-11 py-2 bg-white text-red-700 text-lg font-bold rounded-md shadow-md hover:bg-gray-100 transition-transform transform hover:scale-105"
-            >
-              Acessar
-            </button>
-          </div>
-        ) : (
           <div className="flex w-full h-full">
             {/* Coluna vermelha */}
-            <div className="w-2/5 bg-red-700 text-white flex flex-col justify-center items-center">
+            <div className="w-2/5 bg-gradient-to-br from-red-700 to-red-900 text-white flex flex-col justify-center items-center">
               <div className="h-9/12 flex flex-col justify-center items-center">
                 <h2 className="text-5xl font-bold text-center">
                   Bem-vindo(a) novamente!
@@ -49,7 +21,7 @@ function SalesSystemWelcome() {
               <span className="text-4xl font-extrabold">KHRONOS</span>
             </div>
 
-            {/* Coluna branca com formulário */}
+            {/* Formulário Login */}
             <div className="w-3/5 bg-gray-50 flex flex-col justify-center items-center p-10">
               <h2 className="text-2xl font-bold mb-6">Efetue o login</h2>
 
@@ -86,7 +58,7 @@ function SalesSystemWelcome() {
 
                 <button
                   type="submit"
-                  className="w-full bg-red-400 hover:bg-red-500 text-white font-semibold py-3 rounded-md shadow-md transition-transform transform hover:scale-105"
+                  className="w-full bg-red-400 hover:bg-gradient-to-br from-red-600 to-red-700 text-white font-semibold py-3 rounded-md shadow-md transition-transform transform hover:scale-105"
                 >
                   Login
                 </button>
@@ -100,10 +72,7 @@ function SalesSystemWelcome() {
               </p>
             </div>
           </div>
-        )}
       </div>
     </div>
   );
 }
-
-export default SalesSystemWelcome;

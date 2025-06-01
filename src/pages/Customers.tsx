@@ -2,7 +2,7 @@ import Seo from "@/lib/Seo";
 import metaData from "@/utils/metadata";
 
 export default function Customers() {
-    const meta = metaData["/login"];
+    const meta = metaData["/clientes"];
 
     return (
         <>
