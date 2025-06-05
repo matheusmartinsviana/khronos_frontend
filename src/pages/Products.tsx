@@ -1,3 +1,4 @@
+import ProductForm from "@/components/shared/Products";
 import Seo from "@/lib/Seo";
 import metaData from "@/utils/metadata";
 
@@ -12,7 +13,10 @@ export default function Products() {
                 canonical={meta.canonical}
                 schemaMarkup={meta.schemaMarkup}
             />
-            <p>Products</p>
+            <div className="flex items-center justify-center w-full">
+                <ProductForm />
+            </div>
+
         </>
     )
 }
