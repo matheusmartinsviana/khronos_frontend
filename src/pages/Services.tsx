@@ -1,3 +1,4 @@
+import ServiceForm from "@/components/shared/Services";
 import Seo from "@/lib/Seo";
 import metaData from "@/utils/metadata";
 
@@ -12,7 +13,9 @@ export default function Services() {
                 canonical={meta.canonical}
                 schemaMarkup={meta.schemaMarkup}
             />
-            <p>Services</p>
+            <div className="flex items-center justify-center w-full">
+                <ServiceForm />
+            </div>
         </>
     )
 }
