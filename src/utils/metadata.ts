@@ -61,6 +61,18 @@ const metaData = {
             url: `${BASE_URL}/clientes`,
         },
     },
+    "/clientes/add": {
+        title: "Clientes - Khronos",
+        description: "Visualize e gerencie sua base de clientes com facilidade.",
+        image: `${BASE_URL}/images/logo.png`,
+        canonical: `${BASE_URL}/clientes`,
+        schemaMarkup: {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "Gestão de Clientes",
+            url: `${BASE_URL}/clientes`,
+        },
+    },
     "/servicos": {
         title: "Serviços - Khronos",
         description: "Cadastre e organize os serviços oferecidos pelo seu negócio.",
