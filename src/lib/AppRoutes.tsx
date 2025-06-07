@@ -8,6 +8,7 @@ import Services from "@/pages/Services";
 import Products from "@/pages/Products";
 import Settings from "@/pages/Settings";
 import Dashboard from "@/pages/Dashboard";
+import AddCustomer from "@/pages/AddCustomer";
 
 export default function AppRoutes() {
     return (
@@ -19,6 +20,7 @@ export default function AppRoutes() {
                     <Route path="/login" element={<Login />} />
                     <Route path="/venda" element={<Sale />} />
                     <Route path="/clientes" element={<Customers />} />
+                    <Route path="/clientes/add" element={<AddCustomer />} />
                     <Route path="/servicos" element={<Services />} />
                     <Route path="/produtos" element={<Products />} />
                     <Route path="/configuracoes" element={<Settings />} />
