@@ -1,6 +1,9 @@
 import Seo from "@/lib/Seo";
 import metaData from "@/utils/metadata";
 
+import SaleForm from "@/components/shared/Sale";
+
+
 export default function Sale() {
     const meta = metaData["/venda"];
     return (
@@ -12,7 +15,9 @@ export default function Sale() {
                 canonical={meta.canonical}
                 schemaMarkup={meta.schemaMarkup}
             />
-            <p>Sale</p>
+            <div className="flex items-center justify-center">
+                <SaleForm />
+            </div>
         </>
     )
 }

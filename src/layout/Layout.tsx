@@ -10,7 +10,7 @@ export default function Layout() {
                     <AppSidebar />
                     <SidebarTrigger />
                 </div>
-                <main className="flex justify-center items-center w-full">
+                <main className="flex justify-center w-full overflow-auto p-4">
                     <Outlet />
                 </main>
             </SidebarProvider>
