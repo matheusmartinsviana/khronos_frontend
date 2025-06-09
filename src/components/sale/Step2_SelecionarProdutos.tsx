@@ -1,4 +1,4 @@
-"use client"
+
 
 import type React from "react"
 import { useEffect, useState } from "react"
@@ -153,8 +153,8 @@ const Step2_SelecionarProdutos: React.FC<Step2Props> = ({
                                 <div
                                     key={produto.product_id}
                                     className={`border rounded-lg p-3 lg:p-4 transition-all duration-200 ${isSelected
-                                            ? "border-green-500 bg-green-50 cursor-not-allowed shadow-sm"
-                                            : "border-gray-300 bg-white cursor-pointer hover:shadow-md hover:border-red-300"
+                                        ? "border-green-500 bg-green-50 cursor-not-allowed shadow-sm"
+                                        : "border-gray-300 bg-white cursor-pointer hover:shadow-md hover:border-red-300"
                                         }`}
                                     onClick={() => !isSelected && handleSelecionarProduto(produto)}
                                 >
@@ -174,8 +174,8 @@ const Step2_SelecionarProdutos: React.FC<Step2Props> = ({
                                             </div>
                                             <div
                                                 className={`text-xs font-semibold text-center rounded-full py-2 px-3 ${isSelected
-                                                        ? "bg-green-100 text-green-800"
-                                                        : "bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-700"
+                                                    ? "bg-green-100 text-green-800"
+                                                    : "bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-700"
                                                     }`}
                                             >
                                                 {isSelected ? (

@@ -10,6 +10,8 @@ import Step4_Finalizacao from "@/components/sale/Step4_Finalizacao"
 import Notification from "@/components/sale/Notification"
 import SalesDashboard from "@/components/sale/SalesDashboard"
 import { useUser } from "@/context/UserContext"
+import { downloadPDF, openPDFInNewTab, convertVendaForPDF } from "@/lib/generate-pdf"
+import { FileText, Printer, Home, Plus, ExternalLink } from "lucide-react"
 
 export default function SalesPage() {
     const { user } = useUser()
@@ -18,6 +20,7 @@ export default function SalesPage() {
     const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
     const [produtosSelecionados, setProdutosSelecionados] = useState<ProdutoSelecionado[]>([])
     const [vendaFinalizada, setVendaFinalizada] = useState<Venda | null>(null)
+    const [gerando, setGerando] = useState(false)
     const [notification, setNotification] = useState<NotificationState>({
         show: false,
         type: "info",
@@ -121,6 +124,44 @@ export default function SalesPage() {
         setVendaFinalizada(null)
     }
 
+    const handleGerarPDF = () => {
+        if (!vendaFinalizada || !clienteSelecionado) return
+
+        setGerando(true)
+
+        try {
+            // Usar a função utilitária para converter os dados
+            const vendaParaPDF = convertVendaForPDF(vendaFinalizada, clienteSelecionado, produtosSelecionados, user!)
+
+            // Garantir que metodoPagamento não seja undefined
+            if (!vendaParaPDF.metodoPagamento) {
+                vendaParaPDF.metodoPagamento = "dinheiro"
+            }
+
+            downloadPDF(vendaParaPDF)
+            showNotification("success", "Relatório gerado e baixado com sucesso!")
+        } catch (error) {
+            console.error("Erro ao gerar relatório:", error)
+            showNotification("error", "Erro ao gerar o relatório. Tente novamente.")
+        } finally {
+            setGerando(false)
+        }
+    }
+
+    const handleVisualizarPDF = () => {
+        if (!vendaFinalizada || !clienteSelecionado) return
+
+        try {
+            // Usar a função utilitária para converter os dados
+            const vendaParaPDF = convertVendaForPDF(vendaFinalizada, clienteSelecionado, produtosSelecionados, user!)
+
+            openPDFInNewTab(vendaParaPDF)
+        } catch (error) {
+            console.error("Erro ao visualizar relatório:", error)
+            showNotification("error", "Erro ao visualizar o relatório.")
+        }
+    }
+
     // Se a venda foi finalizada, mostrar tela de sucesso
     if (vendaFinalizada) {
         return (
@@ -141,27 +182,63 @@ export default function SalesPage() {
 
                     <div className="space-y-3">
                         <button
-                            onClick={() => window.print()}
+                            onClick={handleGerarPDF}
+                            disabled={gerando}
                             className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                         >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-                                />
-                            </svg>
-                            Imprimir Relatório
+                            {gerando ? (
+                                <>
+                                    <svg
+                                        className="animate-spin h-4 w-4 text-white"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <circle
+                                            className="opacity-25"
+                                            cx="12"
+                                            cy="12"
+                                            r="10"
+                                            stroke="currentColor"
+                                            strokeWidth="4"
+                                        ></circle>
+                                        <path
+                                            className="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                        ></path>
+                                    </svg>
+                                    Gerando Relatório...
+                                </>
+                            ) : (
+                                <>
+                                    <FileText className="w-4 h-4" />
+                                    Baixar Relatório
+                                </>
+                            )}
                         </button>
 
                         <button
-                            onClick={handleIniciarNovaVenda}
+                            onClick={handleVisualizarPDF}
                             className="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                         >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
+                            <ExternalLink className="w-4 h-4" />
+                            Visualizar Relatório
+                        </button>
+
+                        {/* <button
+                            onClick={() => window.print()}
+                            className="w-full px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Printer className="w-4 h-4" />
+                            Imprimir
+                        </button> */}
+
+                        <button
+                            onClick={handleIniciarNovaVenda}
+                            className="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Plus className="w-4 h-4" />
                             Nova Venda
                         </button>
 
@@ -169,18 +246,15 @@ export default function SalesPage() {
                             onClick={handleVoltarDashboard}
                             className="w-full px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
                         >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                                />
-                            </svg>
+                            <Home className="w-4 h-4" />
                             Voltar ao Dashboard
                         </button>
                     </div>
                 </div>
+                <Notification
+                    notification={notification}
+                    onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
+                />
             </div>
         )
     }

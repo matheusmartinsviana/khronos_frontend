@@ -1,4 +1,4 @@
-"use client"
+
 
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom"
 import Layout from "../layout/Layout"

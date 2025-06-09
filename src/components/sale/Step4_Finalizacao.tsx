@@ -1,15 +1,14 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef } from "react"
+import { useState } from "react"
 import type { Cliente, ProdutoSelecionado, Venda } from "@/types"
 import { createSale } from "@/api/sale"
 import { verifyUserSalesperson } from "@/api/user"
 import { useUser } from "@/context/UserContext"
 import { Button } from "@/components/ui/button"
-import { Printer, FileText, Check, AlertCircle, Loader2 } from "lucide-react"
-import { jsPDF } from "jspdf"
-import autoTable from "jspdf-autotable"
+import { Printer, FileText, Check, AlertCircle, Loader2, ExternalLink } from "lucide-react"
+import { downloadPDF, openPDFInNewTab, convertVendaForPDF } from "@/lib/generate-pdf"
 
 interface Step4Props {
   cliente: Cliente
@@ -33,7 +32,6 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
   const [observacoes, setObservacoes] = useState("")
   const [vendaFinalizada, setVendaFinalizada] = useState<Venda | null>(null)
   const [gerando, setGerando] = useState(false)
-  const pdfRef = useRef<HTMLDivElement>(null)
 
   const total = produtos.reduce((sum, p) => {
     const preco = typeof p.price === "number" && !isNaN(p.price) ? p.price : 0
@@ -105,36 +103,19 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
           return {
             product_id: p.product_id,
             quantidade: quantidade,
-            price: Number(preco.toFixed(2)), // Preço unitário
-            product_price: Number(preco.toFixed(2)), // Campo obrigatório product_price
-            total_sales: Number(subtotal.toFixed(2)), // Campo obrigatório total_sales (subtotal do produto)
+            price: Number(preco.toFixed(2)),
+            product_price: Number(preco.toFixed(2)),
+            total_sales: Number(subtotal.toFixed(2)),
             zoneamento: p.zoneamento || "",
           }
         }),
         payment_method: metodoPagamento,
         total: Number(total.toFixed(2)),
-        amount: Number(total.toFixed(2)), // Campo obrigatório amount
-        sale_type: "venda", // Campo obrigatório sale_type
+        amount: Number(total.toFixed(2)),
+        sale_type: "venda",
         status: "concluida",
         date: new Date().toISOString(),
         observacoes: observacoes.trim() || undefined,
-      }
-
-      console.log("Payload da venda:", vendaPayload)
-
-      // Validação adicional antes de enviar
-      const produtosInvalidos = vendaPayload.products.filter(
-        (p) =>
-          !p.product_price ||
-          isNaN(p.product_price) ||
-          p.product_price <= 0 ||
-          !p.total_sales ||
-          isNaN(p.total_sales) ||
-          p.total_sales <= 0,
-      )
-
-      if (produtosInvalidos.length > 0) {
-        throw new Error("Alguns produtos possuem preços ou totais inválidos. Verifique os dados e tente novamente.")
       }
 
       const saleResponse = await createSale(vendaPayload)
@@ -171,108 +152,36 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
     }
   }
 
-  const gerarPDF = () => {
+  const handleGerarPDF = () => {
+    if (!vendaFinalizada) return
+
     setGerando(true)
 
     try {
-      // Criar nova instância do PDF
-      const doc = new jsPDF()
+      // Usar a função utilitária para converter os dados
+      const vendaParaPDF = convertVendaForPDF(vendaFinalizada, cliente, produtos, user!)
 
-      // Adicionar cabeçalho
-      doc.setFontSize(20)
-      doc.setTextColor(161, 28, 30) // Cor vermelha da marca
-      doc.text("Relatório de Venda", 105, 20, { align: "center" })
-
-      // Informações da venda
-      doc.setFontSize(12)
-      doc.setTextColor(0, 0, 0)
-      doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 20, 40)
-      doc.text(`Vendedor: ${user?.name || "N/A"}`, 20, 50)
-      doc.text(`Método de Pagamento: ${metodoPagamentoLabels[metodoPagamento]}`, 20, 60)
-
-      // Informações do cliente
-      doc.setFontSize(14)
-      doc.setTextColor(161, 28, 30)
-      doc.text("Dados do Cliente", 20, 75)
-
-      doc.setFontSize(12)
-      doc.setTextColor(0, 0, 0)
-      doc.text(`Nome: ${cliente.name}`, 20, 85)
-      doc.text(`Email: ${cliente.email || "N/A"}`, 20, 95)
-      doc.text(`Contato: ${cliente.contato || "N/A"}`, 20, 105)
-
-      // Tabela de produtos
-      doc.setFontSize(14)
-      doc.setTextColor(161, 28, 30)
-      doc.text("Produtos", 20, 125)
-
-      // Preparar dados para a tabela
-      const tableColumn = ["Produto", "Preço Unit.", "Qtd", "Subtotal", "Zoneamento"]
-      const tableRows = produtos.map((produto) => {
-        const preco = typeof produto.price === "number" ? produto.price : 0
-        const quantidade = typeof produto.quantidade === "number" ? produto.quantidade : 0
-        const subtotal = preco * quantidade
-
-        return [
-          produto.name,
-          formatarPreco(preco),
-          quantidade.toString(),
-          formatarPreco(subtotal),
-          produto.zoneamento || "-",
-        ]
-      })
-
-      // Adicionar tabela
-      autoTable(doc, {
-        head: [tableColumn],
-        body: tableRows,
-        startY: 130,
-        theme: "striped",
-        headStyles: { fillColor: [161, 28, 30] },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-      })
-
-      // Adicionar total
-      const finalY = (doc as any).lastAutoTable.finalY + 10
-      doc.setFontSize(14)
-      doc.setFont("helvetica", "bold")
-      doc.text(`Total: ${formatarPreco(total)}`, 150, finalY, { align: "right" })
-
-      // Adicionar observações se houver
-      if (observacoes) {
-        doc.setFontSize(14)
-        doc.setTextColor(161, 28, 30)
-        doc.text("Observações", 20, finalY + 20)
-
-        doc.setFontSize(12)
-        doc.setTextColor(0, 0, 0)
-        doc.setFont("helvetica", "normal")
-        doc.text(observacoes, 20, finalY + 30)
-      }
-
-      // Adicionar rodapé
-      const pageCount = doc.getNumberOfPages()
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i)
-        doc.setFontSize(10)
-        doc.setTextColor(100, 100, 100)
-        doc.text(
-          `Página ${i} de ${pageCount} - Gerado em ${new Date().toLocaleString("pt-BR")}`,
-          105,
-          doc.internal.pageSize.height - 10,
-          { align: "center" },
-        )
-      }
-
-      // Salvar o PDF
-      doc.save(`venda_${new Date().toISOString().slice(0, 10)}_${cliente.name.replace(/\s+/g, "_")}.pdf`)
-
-      onShowNotification?.("success", "PDF gerado com sucesso!")
+      downloadPDF(vendaParaPDF)
+      onShowNotification?.("success", "Relatório HTML gerado e baixado com sucesso!")
     } catch (error) {
-      console.error("Erro ao gerar PDF:", error)
-      onShowNotification?.("error", "Erro ao gerar o PDF. Tente novamente.")
+      console.error("Erro ao gerar relatório:", error)
+      onShowNotification?.("error", "Erro ao gerar o relatório. Tente novamente.")
     } finally {
       setGerando(false)
+    }
+  }
+
+  const handleVisualizarPDF = () => {
+    if (!vendaFinalizada) return
+
+    try {
+      // Usar a função utilitária para converter os dados
+      const vendaParaPDF = convertVendaForPDF(vendaFinalizada, cliente, produtos, user!)
+
+      openPDFInNewTab(vendaParaPDF)
+    } catch (error) {
+      console.error("Erro ao visualizar relatório:", error)
+      onShowNotification?.("error", "Erro ao visualizar o relatório.")
     }
   }
 
@@ -305,7 +214,7 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
           <p className="text-red-100 mt-2 text-sm lg:text-base">Revise os dados e confirme a venda</p>
         </div>
 
-        <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 w-full" ref={pdfRef}>
+        <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 w-full">
           {/* Alerta de produtos com preço inválido */}
           {temProdutosInvalidos && (
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
@@ -351,7 +260,7 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
             </div>
           </section>
 
-          {/* Lista de Produtos - Make table fully responsive */}
+          {/* Lista de Produtos */}
           <section className="bg-gray-50 rounded-lg p-3 lg:p-4 border border-gray-200 w-full">
             <h3 className="font-semibold text-base lg:text-lg mb-3 flex items-center gap-2 text-gray-800">
               <svg className="w-4 h-4 lg:w-5 lg:h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -435,7 +344,7 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
             </div>
           </section>
 
-          {/* Método de Pagamento - Responsive grid */}
+          {/* Método de Pagamento */}
           <section className="bg-gray-50 rounded-lg p-3 lg:p-4 border border-gray-200 w-full">
             <h3 className="font-semibold text-base lg:text-lg mb-3 flex items-center gap-2 text-gray-800">
               <svg className="w-4 h-4 lg:w-5 lg:h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -453,8 +362,8 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
                 <label
                   key={option.value}
                   className={`flex items-center justify-center p-2 lg:p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${metodoPagamento === option.value
-                    ? "border-red-500 bg-red-50 text-red-700"
-                    : "border-gray-300 bg-white hover:border-gray-400"
+                      ? "border-red-500 bg-red-50 text-red-700"
+                      : "border-gray-300 bg-white hover:border-gray-400"
                     }`}
                 >
                   <input
@@ -516,8 +425,8 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
           {mensagem && (
             <div
               className={`p-4 rounded-lg border ${mensagem.includes("Erro") || mensagem.includes("inválido")
-                ? "bg-red-50 border-red-200 text-red-800"
-                : "bg-green-50 border-green-200 text-green-800"
+                  ? "bg-red-50 border-red-200 text-red-800"
+                  : "bg-green-50 border-green-200 text-green-800"
                 }`}
             >
               <div className="flex items-center gap-2">
@@ -531,7 +440,7 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
             </div>
           )}
 
-          {/* Botões de Ação - Responsive layout */}
+          {/* Botões de Ação */}
           <div className="flex flex-col gap-3 pt-4 w-full">
             <Button
               onClick={handleFinalizarVenda}
@@ -555,9 +464,9 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
             </Button>
 
             {vendaFinalizada && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
                 <Button
-                  onClick={gerarPDF}
+                  onClick={handleGerarPDF}
                   disabled={gerando}
                   className="w-full py-4 lg:py-6 bg-blue-600 hover:bg-blue-700 text-white text-sm lg:text-base"
                   size="lg"
@@ -565,24 +474,33 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
                   {gerando ? (
                     <>
                       <Loader2 className="w-4 h-4 lg:w-5 lg:h-5 mr-2 animate-spin" />
-                      Gerando PDF...
+                      Gerando...
                     </>
                   ) : (
                     <>
                       <FileText className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
-                      Gerar Relatório PDF
+                      Baixar Relatório
                     </>
                   )}
                 </Button>
 
                 <Button
+                  onClick={handleVisualizarPDF}
+                  className="w-full py-4 lg:py-6 bg-green-600 hover:bg-green-700 text-white text-sm lg:text-base"
+                  size="lg"
+                >
+                  <ExternalLink className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
+                  Visualizar
+                </Button>
+
+                {/* <Button
                   onClick={() => window.print()}
                   className="w-full py-4 lg:py-6 bg-gray-600 hover:bg-gray-700 text-white text-sm lg:text-base"
                   size="lg"
                 >
                   <Printer className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
                   Imprimir
-                </Button>
+                </Button> */}
               </div>
             )}
           </div>
