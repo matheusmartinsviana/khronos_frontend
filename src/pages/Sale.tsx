@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useTransition } from "react"
 import type { Cliente, ProdutoSelecionado, Venda, NotificationState } from "@/types"
 import Step1_SelecionarCliente from "@/components/sale/Step1_SelecionarCliente"
 import Stepper from "@/components/sale/Stepper"
@@ -11,7 +11,9 @@ import Notification from "@/components/sale/Notification"
 import SalesDashboard from "@/components/sale/SalesDashboard"
 import { useUser } from "@/context/UserContext"
 import { downloadPDF, openPDFInNewTab, convertVendaForPDF } from "@/lib/generate-pdf"
-import { FileText, Printer, Home, Plus, ExternalLink } from "lucide-react"
+import { FileText, Home, Plus, ExternalLink, ArrowLeft } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 
 export default function SalesPage() {
     const { user } = useUser()
@@ -20,7 +22,7 @@ export default function SalesPage() {
     const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
     const [produtosSelecionados, setProdutosSelecionados] = useState<ProdutoSelecionado[]>([])
     const [vendaFinalizada, setVendaFinalizada] = useState<Venda | null>(null)
-    const [gerando, setGerando] = useState(false)
+    const [isPending, startTransition] = useTransition()
     const [notification, setNotification] = useState<NotificationState>({
         show: false,
         type: "info",
@@ -29,7 +31,8 @@ export default function SalesPage() {
 
     const steps = ["Selecionar Cliente", "Selecionar Produtos", "Revisar Produtos", "Finalizar Venda"]
 
-    const showNotification = (type: "success" | "error" | "info", message: string) => {
+    // Memoized notification handler to prevent unnecessary re-renders
+    const showNotification = useCallback((type: "success" | "error" | "info", message: string) => {
         setNotification({
             show: true,
             type,
@@ -40,45 +43,46 @@ export default function SalesPage() {
         setTimeout(() => {
             setNotification((prev) => ({ ...prev, show: false }))
         }, 5000)
-    }
+    }, [])
 
-    const handleClienteSelect = (cliente: Cliente) => {
+    // Memoized handlers to prevent unnecessary re-renders
+    const handleClienteSelect = useCallback((cliente: Cliente) => {
         setClienteSelecionado(cliente)
-    }
+    }, [])
 
-    const handleAdicionarProduto = (produto: ProdutoSelecionado) => {
+    const handleAdicionarProduto = useCallback((produto: ProdutoSelecionado) => {
         setProdutosSelecionados((prev) => {
             const currentProducts = Array.isArray(prev) ? prev : []
             return [...currentProducts, produto]
         })
-    }
+    }, [])
 
-    const handleRemoverProduto = (produtoId: number) => {
+    const handleRemoverProduto = useCallback((produtoId: number) => {
         setProdutosSelecionados((prev) => {
             const currentProducts = Array.isArray(prev) ? prev : []
             return currentProducts.filter((p) => p.product_id !== produtoId)
         })
-    }
+    }, [])
 
-    const handleAlterarQuantidade = (produtoId: number, quantidade: number) => {
+    const handleAlterarQuantidade = useCallback((produtoId: number, quantidade: number) => {
         setProdutosSelecionados((prev) => {
             const currentProducts = Array.isArray(prev) ? prev : []
             return currentProducts.map((p) => (p.product_id === produtoId ? { ...p, quantidade } : p))
         })
-    }
+    }, [])
 
-    const handleAlterarZoneamento = (produtoId: number, zoneamento: string) => {
+    const handleAlterarZoneamento = useCallback((produtoId: number, zoneamento: string) => {
         setProdutosSelecionados((prev) => {
             const currentProducts = Array.isArray(prev) ? prev : []
             return currentProducts.map((p) => (p.product_id === produtoId ? { ...p, zoneamento } : p))
         })
-    }
+    }, [])
 
-    const handleFinalizarVenda = (venda: Venda) => {
+    const handleFinalizarVenda = useCallback((venda: Venda) => {
         setVendaFinalizada(venda)
-    }
+    }, [])
 
-    const canProceedToNextStep = () => {
+    const canProceedToNextStep = useCallback(() => {
         switch (currentStep) {
             case 0:
                 return clienteSelecionado !== null
@@ -91,166 +95,147 @@ export default function SalesPage() {
             default:
                 return false
         }
-    }
+    }, [currentStep, clienteSelecionado, produtosSelecionados])
 
-    const handleNextStep = () => {
+    const handleNextStep = useCallback(() => {
         if (canProceedToNextStep() && currentStep < steps.length - 1) {
-            setCurrentStep((prev) => prev + 1)
-            window.scrollTo(0, 0)
+            startTransition(() => {
+                setCurrentStep((prev) => prev + 1)
+                window.scrollTo({ top: 0, behavior: "smooth" })
+            })
         }
-    }
+    }, [canProceedToNextStep, currentStep, steps.length])
 
-    const handlePrevStep = () => {
+    const handlePrevStep = useCallback(() => {
         if (currentStep > 0) {
-            setCurrentStep((prev) => prev - 1)
-            window.scrollTo(0, 0)
+            startTransition(() => {
+                setCurrentStep((prev) => prev - 1)
+                window.scrollTo({ top: 0, behavior: "smooth" })
+            })
         }
-    }
+    }, [currentStep])
 
-    const handleIniciarNovaVenda = () => {
-        setShowSalesProcess(true)
-        setCurrentStep(0)
-        setClienteSelecionado(null)
-        setProdutosSelecionados([])
-        setVendaFinalizada(null)
-        showNotification("info", "Nova venda iniciada")
-    }
+    const handleIniciarNovaVenda = useCallback(() => {
+        startTransition(() => {
+            setShowSalesProcess(true)
+            setCurrentStep(0)
+            setClienteSelecionado(null)
+            setProdutosSelecionados([])
+            setVendaFinalizada(null)
+            showNotification("info", "Nova venda iniciada")
+        })
+    }, [showNotification])
 
-    const handleVoltarDashboard = () => {
-        setShowSalesProcess(false)
-        setCurrentStep(0)
-        setClienteSelecionado(null)
-        setProdutosSelecionados([])
-        setVendaFinalizada(null)
-    }
+    const handleVoltarDashboard = useCallback(() => {
+        startTransition(() => {
+            setShowSalesProcess(false)
+            setCurrentStep(0)
+            setClienteSelecionado(null)
+            setProdutosSelecionados([])
+            setVendaFinalizada(null)
+        })
+    }, [])
 
-    const handleGerarPDF = () => {
-        if (!vendaFinalizada || !clienteSelecionado) return
+    const handleGerarPDF = useCallback(() => {
+        if (!vendaFinalizada || !clienteSelecionado || !user) return
 
-        setGerando(true)
+        startTransition(() => {
+            try {
+                // Usar a função utilitária para converter os dados
+                const vendaParaPDF = convertVendaForPDF(vendaFinalizada, clienteSelecionado, produtosSelecionados, user)
 
-        try {
-            // Usar a função utilitária para converter os dados
-            const vendaParaPDF = convertVendaForPDF(vendaFinalizada, clienteSelecionado, produtosSelecionados, user!)
+                // Garantir que metodoPagamento não seja undefined
+                if (!vendaParaPDF.metodoPagamento) {
+                    vendaParaPDF.metodoPagamento = "dinheiro"
+                }
 
-            // Garantir que metodoPagamento não seja undefined
-            if (!vendaParaPDF.metodoPagamento) {
-                vendaParaPDF.metodoPagamento = "dinheiro"
+                downloadPDF(vendaParaPDF)
+                showNotification("success", "Relatório gerado e baixado com sucesso!")
+            } catch (error) {
+                console.error("Erro ao gerar relatório:", error)
+                showNotification("error", "Erro ao gerar o relatório. Tente novamente.")
             }
+        })
+    }, [vendaFinalizada, clienteSelecionado, produtosSelecionados, user, showNotification])
 
-            downloadPDF(vendaParaPDF)
-            showNotification("success", "Relatório gerado e baixado com sucesso!")
-        } catch (error) {
-            console.error("Erro ao gerar relatório:", error)
-            showNotification("error", "Erro ao gerar o relatório. Tente novamente.")
-        } finally {
-            setGerando(false)
-        }
-    }
-
-    const handleVisualizarPDF = () => {
-        if (!vendaFinalizada || !clienteSelecionado) return
+    const handleVisualizarPDF = useCallback(() => {
+        if (!vendaFinalizada || !clienteSelecionado || !user) return
 
         try {
             // Usar a função utilitária para converter os dados
-            const vendaParaPDF = convertVendaForPDF(vendaFinalizada, clienteSelecionado, produtosSelecionados, user!)
-
+            const vendaParaPDF = convertVendaForPDF(vendaFinalizada, clienteSelecionado, produtosSelecionados, user)
             openPDFInNewTab(vendaParaPDF)
         } catch (error) {
             console.error("Erro ao visualizar relatório:", error)
             showNotification("error", "Erro ao visualizar o relatório.")
         }
-    }
+    }, [vendaFinalizada, clienteSelecionado, produtosSelecionados, user, showNotification])
 
     // Se a venda foi finalizada, mostrar tela de sucesso
     if (vendaFinalizada) {
         return (
             <div className="flex items-center justify-center p-4 h-full">
-                <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-                    <div className="text-green-600 mb-4">
-                        <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                        </svg>
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Venda Finalizada!</h2>
-                    <p className="text-gray-600 mb-6">A venda foi processada com sucesso.</p>
+                <Card className="max-w-md w-full">
+                    <CardContent className="p-8 text-center">
+                        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-green-100">
+                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">Venda Finalizada!</h2>
+                        <p className="text-gray-600 mb-6">A venda foi processada com sucesso.</p>
 
-                    <div className="space-y-3">
-                        <button
-                            onClick={handleGerarPDF}
-                            disabled={gerando}
-                            className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                            {gerando ? (
-                                <>
-                                    <svg
-                                        className="animate-spin h-4 w-4 text-white"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <circle
-                                            className="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            strokeWidth="4"
-                                        ></circle>
-                                        <path
-                                            className="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                        ></path>
-                                    </svg>
-                                    Gerando Relatório...
-                                </>
-                            ) : (
-                                <>
-                                    <FileText className="w-4 h-4" />
-                                    Baixar Relatório
-                                </>
-                            )}
-                        </button>
+                        <div className="space-y-3">
+                            <Button onClick={handleGerarPDF} disabled={isPending} className="w-full bg-blue-600 hover:bg-blue-700">
+                                {isPending ? (
+                                    <>
+                                        <svg
+                                            className="animate-spin h-4 w-4 mr-2"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <circle
+                                                className="opacity-25"
+                                                cx="12"
+                                                cy="12"
+                                                r="10"
+                                                stroke="currentColor"
+                                                strokeWidth="4"
+                                            ></circle>
+                                            <path
+                                                className="opacity-75"
+                                                fill="currentColor"
+                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                            ></path>
+                                        </svg>
+                                        Gerando Relatório...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FileText className="w-4 h-4 mr-2" />
+                                        Baixar Relatório
+                                    </>
+                                )}
+                            </Button>
 
-                        <button
-                            onClick={handleVisualizarPDF}
-                            className="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                            <ExternalLink className="w-4 h-4" />
-                            Visualizar Relatório
-                        </button>
+                            <Button onClick={handleVisualizarPDF} className="w-full bg-green-600 hover:bg-green-700">
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                Visualizar Relatório
+                            </Button>
 
-                        {/* <button
-                            onClick={() => window.print()}
-                            className="w-full px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
-                        >
-                            <Printer className="w-4 h-4" />
-                            Imprimir
-                        </button> */}
+                            <Button onClick={handleIniciarNovaVenda} className="w-full bg-red-600 hover:bg-red-700">
+                                <Plus className="w-4 h-4 mr-2" />
+                                Nova Venda
+                            </Button>
 
-                        <button
-                            onClick={handleIniciarNovaVenda}
-                            className="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Nova Venda
-                        </button>
-
-                        <button
-                            onClick={handleVoltarDashboard}
-                            className="w-full px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                            <Home className="w-4 h-4" />
-                            Voltar ao Dashboard
-                        </button>
-                    </div>
-                </div>
+                            <Button onClick={handleVoltarDashboard} variant="outline" className="w-full">
+                                <Home className="w-4 h-4 mr-2" />
+                                Voltar ao Dashboard
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
                 <Notification
                     notification={notification}
                     onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
@@ -279,86 +264,82 @@ export default function SalesPage() {
                 <div className="w-full max-w-none">
                     <div className="flex items-center justify-between mb-6">
                         <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Sistema de Vendas</h1>
-                        <button
-                            onClick={handleVoltarDashboard}
-                            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                            </svg>
+                        <Button onClick={handleVoltarDashboard} variant="outline" className="gap-2">
+                            <ArrowLeft className="w-4 h-4" />
                             Voltar
-                        </button>
+                        </Button>
                     </div>
 
                     <Stepper currentStep={currentStep} steps={steps} />
 
-                    <div className="bg-white rounded-lg shadow-lg overflow-hidden w-full">
-                        {currentStep === 0 && (
-                            <Step1_SelecionarCliente
-                                onClienteSelect={handleClienteSelect}
-                                clienteSelecionado={clienteSelecionado}
-                                onShowNotification={showNotification}
-                            />
-                        )}
+                    <Card className="w-full">
+                        <CardContent className="p-0">
+                            {currentStep === 0 && (
+                                <Step1_SelecionarCliente
+                                    onClienteSelect={handleClienteSelect}
+                                    clienteSelecionado={clienteSelecionado}
+                                    onShowNotification={showNotification}
+                                />
+                            )}
 
-                        {currentStep === 1 && (
-                            <Step2_SelecionarProdutos
-                                produtosSelecionados={produtosSelecionados}
-                                onAdicionarProduto={handleAdicionarProduto}
-                                onShowNotification={showNotification}
-                            />
-                        )}
+                            {currentStep === 1 && (
+                                <Step2_SelecionarProdutos
+                                    produtosSelecionados={produtosSelecionados}
+                                    onAdicionarProduto={handleAdicionarProduto}
+                                    onShowNotification={showNotification}
+                                />
+                            )}
 
-                        {currentStep === 2 && (
-                            <Step3_RevisaoProdutos
-                                produtos={produtosSelecionados}
-                                onRemoverProduto={handleRemoverProduto}
-                                onAlterarQuantidade={handleAlterarQuantidade}
-                                onAlterarZoneamento={handleAlterarZoneamento}
-                                onShowNotification={showNotification}
-                            />
-                        )}
+                            {currentStep === 2 && (
+                                <Step3_RevisaoProdutos
+                                    produtos={produtosSelecionados}
+                                    onRemoverProduto={handleRemoverProduto}
+                                    onAlterarQuantidade={handleAlterarQuantidade}
+                                    onAlterarZoneamento={handleAlterarZoneamento}
+                                    onShowNotification={showNotification}
+                                />
+                            )}
 
-                        {currentStep === 3 && clienteSelecionado && (
-                            <Step4_Finalizacao
-                                cliente={clienteSelecionado}
-                                produtos={produtosSelecionados}
-                                onFinalizarVenda={handleFinalizarVenda}
-                                onShowNotification={showNotification}
-                            />
-                        )}
+                            {currentStep === 3 && clienteSelecionado && (
+                                <Step4_Finalizacao
+                                    cliente={clienteSelecionado}
+                                    produtos={produtosSelecionados}
+                                    onFinalizarVenda={handleFinalizarVenda}
+                                    onShowNotification={showNotification}
+                                />
+                            )}
 
-                        {/* Navigation Buttons */}
-                        {currentStep !== 3 && (
-                            <div className="p-4 lg:p-6 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row justify-between gap-4">
-                                <button
-                                    onClick={handlePrevStep}
-                                    disabled={currentStep === 0}
-                                    className="px-4 lg:px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-2 order-2 sm:order-1"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                    </svg>
-                                    Anterior
-                                </button>
+                            {/* Navigation Buttons */}
+                            {currentStep !== 3 && (
+                                <div className="p-6 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row justify-between gap-4">
+                                    <Button
+                                        onClick={handlePrevStep}
+                                        disabled={currentStep === 0}
+                                        variant="outline"
+                                        className="order-2 sm:order-1"
+                                    >
+                                        <ArrowLeft className="w-4 h-4 mr-2" />
+                                        Anterior
+                                    </Button>
 
-                                <div className="text-sm text-gray-600 flex items-center justify-center order-1 sm:order-2">
-                                    Etapa {currentStep + 1} de {steps.length}
+                                    <div className="text-sm text-gray-600 flex items-center justify-center order-1 sm:order-2">
+                                        Etapa {currentStep + 1} de {steps.length}
+                                    </div>
+
+                                    <Button
+                                        onClick={handleNextStep}
+                                        disabled={!canProceedToNextStep() || isPending}
+                                        className="order-3 bg-red-700 hover:bg-red-800"
+                                    >
+                                        Próximo
+                                        <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </Button>
                                 </div>
-
-                                <button
-                                    onClick={handleNextStep}
-                                    disabled={!canProceedToNextStep()}
-                                    className="px-4 lg:px-6 py-2 bg-red-700 text-white rounded-md hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center gap-2 order-3"
-                                >
-                                    Próximo
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                    </svg>
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                            )}
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
 
