@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { api } from "@/api"
 import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react"
+import posthog from "posthog-js"
 
 export default function Login() {
   const { login } = useAuth()
@@ -77,9 +78,10 @@ export default function Login() {
       const { token } = response.data
 
       if (token) {
-        // Pequeno delay para mostrar o sucesso
-        await new Promise((resolve) => setTimeout(resolve, 500))
         login(token)
+        posthog.identify(email, {
+          email: email,
+        })
       } else {
         setError("Token não recebido da API.")
       }

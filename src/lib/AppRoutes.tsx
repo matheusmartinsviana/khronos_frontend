@@ -13,6 +13,7 @@ import type { JSX } from "react"
 import { UserProvider } from "@/context/UserContext"
 import ClientesPage from "@/pages/customer"
 import ProductsPage from "@/pages/product"
+import { PageTracker } from "@/utils/page-tracker"
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
     const { isAuthenticated } = useAuth()
@@ -21,8 +22,8 @@ function PrivateRoute({ children }: { children: JSX.Element }) {
 
 export default function AppRoutes() {
     return (
-        
         <BrowserRouter>
+            <PageTracker />
             <AuthProvider>
                 <UserProvider>
                     <Routes>

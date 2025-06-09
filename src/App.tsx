@@ -1,5 +1,6 @@
 import './App.css'
 import AppRoutes from './lib/AppRoutes'
+import './lib/posthogClient';
 
 function App() {
 
