@@ -1,5 +1,0 @@
-{
-    "build": {
-        "ignoreCommand": "echo 'Ignorando erros de build...'; exit 0"
-    }
-}
