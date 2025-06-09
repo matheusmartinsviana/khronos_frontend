@@ -19,17 +19,19 @@ const formatarPreco = (valor?: number) => {
 }
 
 const Step3_RevisaoProdutos: React.FC<Step3Props> = ({
-    produtos,
+    produtos = [], // Default value
     onRemoverProduto,
     onAlterarQuantidade,
     onAlterarZoneamento,
     onShowNotification,
 }) => {
-    const total = produtos.reduce((sum, produto) => {
-        const preco = typeof produto.price === "number" ? produto.price : 0
-        const quantidade = typeof produto.quantidade === "number" ? produto.quantidade : 0
-        return sum + preco * quantidade
-    }, 0)
+    const total = Array.isArray(produtos)
+        ? produtos.reduce((sum, produto) => {
+            const preco = typeof produto.price === "number" ? produto.price : 0
+            const quantidade = typeof produto.quantidade === "number" ? produto.quantidade : 0
+            return sum + preco * quantidade
+        }, 0)
+        : 0
 
     const handleRemover = (produto: ProdutoSelecionado) => {
         onRemoverProduto(produto.product_id)
@@ -45,10 +47,10 @@ const Step3_RevisaoProdutos: React.FC<Step3Props> = ({
         onAlterarZoneamento(produtoId, novoZoneamento)
     }
 
-    if (produtos.length === 0) {
+    if (!Array.isArray(produtos) || produtos.length === 0) {
         return (
-            <div className="p-4">
-                <h2 className="text-gray-800 mb-4 text-lg font-semibold">Revisão de Produtos</h2>
+            <div className="p-4 lg:p-6 w-full">
+                <h2 className="text-gray-800 mb-4 text-lg lg:text-xl font-semibold">Revisão de Produtos</h2>
                 <div className="text-center p-8 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                     <svg className="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
@@ -66,24 +68,26 @@ const Step3_RevisaoProdutos: React.FC<Step3Props> = ({
     }
 
     return (
-        <div className="p-4">
-            <h2 className="text-gray-800 mb-4 text-lg font-semibold">Revisão de Produtos</h2>
+        <div className="p-4 lg:p-6 w-full">
+            <h2 className="text-gray-800 mb-4 text-lg lg:text-xl font-semibold">Revisão de Produtos</h2>
 
-            <div className="space-y-4">
+            <div className="space-y-4 w-full">
                 {produtos.map((produto) => (
                     <div
                         key={produto.product_id}
-                        className="border border-gray-300 rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow duration-200"
+                        className="border border-gray-300 rounded-lg p-3 lg:p-4 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 w-full"
                     >
-                        <div className="flex justify-between items-start flex-wrap gap-3 mb-4">
-                            <div className="flex-1 min-w-0">
-                                <h4 className="text-gray-800 text-base font-semibold mb-2 line-clamp-2">{produto.name}</h4>
+                        <div className="flex flex-col lg:flex-row justify-between items-start gap-3 mb-4">
+                            <div className="flex-1 min-w-0 w-full lg:w-auto">
+                                <h4 className="text-gray-800 text-base font-semibold mb-2 line-clamp-2">
+                                    {produto.name || "Nome não disponível"}
+                                </h4>
                                 <div className="space-y-1">
                                     <p className="text-gray-600 text-sm">
                                         <span className="font-medium">Tipo:</span> {produto.product_type || "Não informado"}
                                     </p>
                                     {produto.description && (
-                                        <p className="text-gray-600 text-sm">
+                                        <p className="text-gray-600 text-sm line-clamp-2">
                                             <span className="font-medium">Descrição:</span> {produto.description}
                                         </p>
                                     )}
@@ -94,7 +98,7 @@ const Step3_RevisaoProdutos: React.FC<Step3Props> = ({
                             </div>
                             <button
                                 onClick={() => handleRemover(produto)}
-                                className="px-3 py-2 rounded-md text-xs bg-red-600 text-white hover:bg-red-700 transition-colors duration-200 flex items-center gap-1"
+                                className="px-3 py-2 rounded-md text-xs bg-red-600 text-white hover:bg-red-700 transition-colors duration-200 flex items-center gap-1 w-full lg:w-auto justify-center"
                                 aria-label={`Remover ${produto.name}`}
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,7 +113,7 @@ const Step3_RevisaoProdutos: React.FC<Step3Props> = ({
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full">
                             <div className="space-y-2">
                                 <label htmlFor={`quantidade-${produto.product_id}`} className="block text-sm font-medium text-gray-800">
                                     Quantidade:
@@ -117,9 +121,9 @@ const Step3_RevisaoProdutos: React.FC<Step3Props> = ({
                                 <div className="flex items-center gap-3">
                                     <div className="flex items-center border border-gray-300 rounded-md">
                                         <button
-                                            onClick={() => handleQuantidadeChange(produto.product_id, produto.quantidade - 1)}
-                                            disabled={produto.quantidade <= 1}
-                                            className="px-3 py-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 rounded-l-md"
+                                            onClick={() => handleQuantidadeChange(produto.product_id, (produto.quantidade || 1) - 1)}
+                                            disabled={(produto.quantidade || 1) <= 1}
+                                            className="px-2 lg:px-3 py-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 rounded-l-md"
                                             aria-label={`Diminuir quantidade de ${produto.name}`}
                                         >
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -128,13 +132,13 @@ const Step3_RevisaoProdutos: React.FC<Step3Props> = ({
                                         </button>
                                         <span
                                             id={`quantidade-${produto.product_id}`}
-                                            className="px-4 py-2 text-center font-semibold text-gray-800 bg-gray-50 min-w-[60px]"
+                                            className="px-3 lg:px-4 py-2 text-center font-semibold text-gray-800 bg-gray-50 min-w-[60px]"
                                         >
-                                            {produto.quantidade}
+                                            {produto.quantidade || 1}
                                         </span>
                                         <button
-                                            onClick={() => handleQuantidadeChange(produto.product_id, produto.quantidade + 1)}
-                                            className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors duration-200 rounded-r-md"
+                                            onClick={() => handleQuantidadeChange(produto.product_id, (produto.quantidade || 1) + 1)}
+                                            className="px-2 lg:px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors duration-200 rounded-r-md"
                                             aria-label={`Aumentar quantidade de ${produto.name}`}
                                         >
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,8 +153,8 @@ const Step3_RevisaoProdutos: React.FC<Step3Props> = ({
                                     </div>
                                     <div className="text-right">
                                         <p className="text-sm text-gray-600">Subtotal:</p>
-                                        <p className="font-bold text-red-700 text-lg">
-                                            {formatarPreco(produto.price * produto.quantidade)}
+                                        <p className="font-bold text-red-700 text-base lg:text-lg">
+                                            {formatarPreco((produto.price || 0) * (produto.quantidade || 1))}
                                         </p>
                                     </div>
                                 </div>
@@ -174,18 +178,18 @@ const Step3_RevisaoProdutos: React.FC<Step3Props> = ({
                 ))}
             </div>
 
-            <div className="mt-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-300">
-                <div className="flex justify-between items-center flex-wrap gap-2">
-                    <div className="text-gray-600">
+            <div className="mt-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-300 w-full">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
+                    <div className="text-gray-600 text-center sm:text-left">
                         <p className="text-sm">
                             <span className="font-medium">{produtos.length}</span> produto{produtos.length !== 1 ? "s" : ""} •{" "}
-                            <span className="font-medium">{produtos.reduce((sum, p) => sum + p.quantidade, 0)}</span> item
-                            {produtos.reduce((sum, p) => sum + p.quantidade, 0) !== 1 ? "s" : ""}
+                            <span className="font-medium">{produtos.reduce((sum, p) => sum + (p.quantidade || 0), 0)}</span> item
+                            {produtos.reduce((sum, p) => sum + (p.quantidade || 0), 0) !== 1 ? "s" : ""}
                         </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-center sm:text-right">
                         <p className="text-sm text-gray-600 mb-1">Total Geral:</p>
-                        <h3 className="text-red-700 text-2xl font-bold">{formatarPreco(total)}</h3>
+                        <h3 className="text-red-700 text-xl lg:text-2xl font-bold">{formatarPreco(total)}</h3>
                     </div>
                 </div>
             </div>

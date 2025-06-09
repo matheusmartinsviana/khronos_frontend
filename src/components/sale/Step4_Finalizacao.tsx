@@ -1,11 +1,15 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useRef } from "react"
 import type { Cliente, ProdutoSelecionado, Venda } from "@/types"
 import { createSale } from "@/api/sale"
 import { verifyUserSalesperson } from "@/api/user"
 import { useUser } from "@/context/UserContext"
+import { Button } from "@/components/ui/button"
+import { Printer, FileText, Check, AlertCircle, Loader2 } from "lucide-react"
+import { jsPDF } from "jspdf"
+import autoTable from "jspdf-autotable"
 
 interface Step4Props {
   cliente: Cliente
@@ -27,6 +31,9 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
   const [loadingVenda, setLoadingVenda] = useState(false)
   const [mensagem, setMensagem] = useState<string | null>(null)
   const [observacoes, setObservacoes] = useState("")
+  const [vendaFinalizada, setVendaFinalizada] = useState<Venda | null>(null)
+  const [gerando, setGerando] = useState(false)
+  const pdfRef = useRef<HTMLDivElement>(null)
 
   const total = produtos.reduce((sum, p) => {
     const preco = typeof p.price === "number" && !isNaN(p.price) ? p.price : 0
@@ -132,6 +139,7 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
 
       const saleResponse = await createSale(vendaPayload)
       const vendaCriada = saleResponse.data as Venda
+      setVendaFinalizada(vendaCriada)
 
       const successMsg = "Venda finalizada com sucesso!"
       setMensagem(successMsg)
@@ -163,51 +171,149 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
     }
   }
 
+  const gerarPDF = () => {
+    setGerando(true)
+
+    try {
+      // Criar nova instância do PDF
+      const doc = new jsPDF()
+
+      // Adicionar cabeçalho
+      doc.setFontSize(20)
+      doc.setTextColor(161, 28, 30) // Cor vermelha da marca
+      doc.text("Relatório de Venda", 105, 20, { align: "center" })
+
+      // Informações da venda
+      doc.setFontSize(12)
+      doc.setTextColor(0, 0, 0)
+      doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 20, 40)
+      doc.text(`Vendedor: ${user?.name || "N/A"}`, 20, 50)
+      doc.text(`Método de Pagamento: ${metodoPagamentoLabels[metodoPagamento]}`, 20, 60)
+
+      // Informações do cliente
+      doc.setFontSize(14)
+      doc.setTextColor(161, 28, 30)
+      doc.text("Dados do Cliente", 20, 75)
+
+      doc.setFontSize(12)
+      doc.setTextColor(0, 0, 0)
+      doc.text(`Nome: ${cliente.name}`, 20, 85)
+      doc.text(`Email: ${cliente.email || "N/A"}`, 20, 95)
+      doc.text(`Contato: ${cliente.contato || "N/A"}`, 20, 105)
+
+      // Tabela de produtos
+      doc.setFontSize(14)
+      doc.setTextColor(161, 28, 30)
+      doc.text("Produtos", 20, 125)
+
+      // Preparar dados para a tabela
+      const tableColumn = ["Produto", "Preço Unit.", "Qtd", "Subtotal", "Zoneamento"]
+      const tableRows = produtos.map((produto) => {
+        const preco = typeof produto.price === "number" ? produto.price : 0
+        const quantidade = typeof produto.quantidade === "number" ? produto.quantidade : 0
+        const subtotal = preco * quantidade
+
+        return [
+          produto.name,
+          formatarPreco(preco),
+          quantidade.toString(),
+          formatarPreco(subtotal),
+          produto.zoneamento || "-",
+        ]
+      })
+
+      // Adicionar tabela
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 130,
+        theme: "striped",
+        headStyles: { fillColor: [161, 28, 30] },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+      })
+
+      // Adicionar total
+      const finalY = (doc as any).lastAutoTable.finalY + 10
+      doc.setFontSize(14)
+      doc.setFont("helvetica", "bold")
+      doc.text(`Total: ${formatarPreco(total)}`, 150, finalY, { align: "right" })
+
+      // Adicionar observações se houver
+      if (observacoes) {
+        doc.setFontSize(14)
+        doc.setTextColor(161, 28, 30)
+        doc.text("Observações", 20, finalY + 20)
+
+        doc.setFontSize(12)
+        doc.setTextColor(0, 0, 0)
+        doc.setFont("helvetica", "normal")
+        doc.text(observacoes, 20, finalY + 30)
+      }
+
+      // Adicionar rodapé
+      const pageCount = doc.getNumberOfPages()
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i)
+        doc.setFontSize(10)
+        doc.setTextColor(100, 100, 100)
+        doc.text(
+          `Página ${i} de ${pageCount} - Gerado em ${new Date().toLocaleString("pt-BR")}`,
+          105,
+          doc.internal.pageSize.height - 10,
+          { align: "center" },
+        )
+      }
+
+      // Salvar o PDF
+      doc.save(`venda_${new Date().toISOString().slice(0, 10)}_${cliente.name.replace(/\s+/g, "_")}.pdf`)
+
+      onShowNotification?.("success", "PDF gerado com sucesso!")
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error)
+      onShowNotification?.("error", "Erro ao gerar o PDF. Tente novamente.")
+    } finally {
+      setGerando(false)
+    }
+  }
+
   const metodoPagamentoOptions = [
-    { value: "dinheiro", label: "💵 Dinheiro", icon: "💵" },
-    { value: "cartao", label: "💳 Cartão", icon: "💳" },
-    { value: "pix", label: "📱 PIX", icon: "📱" },
-    { value: "boleto", label: "📄 Boleto", icon: "📄" },
+    { value: "dinheiro", label: "Dinheiro", icon: "💵" },
+    { value: "cartao", label: "Cartão", icon: "💳" },
+    { value: "pix", label: "PIX", icon: "📱" },
+    { value: "boleto", label: "Boleto", icon: "📄" },
   ]
+
+  const metodoPagamentoLabels: Record<string, string> = {
+    dinheiro: "Dinheiro",
+    cartao: "Cartão",
+    pix: "PIX",
+    boleto: "Boleto",
+  }
 
   // Verificar se há produtos com preços inválidos
   const produtosComPrecoInvalido = produtos.filter((p) => !p.price || isNaN(p.price) || p.price <= 0)
   const temProdutosInvalidos = produtosComPrecoInvalido.length > 0
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="bg-white rounded-lg shadow-lg border border-gray-200">
-        <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-6 rounded-t-lg">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+    <div className="w-full p-4 lg:p-6">
+      <div className="bg-white rounded-lg shadow-lg border border-gray-200 w-full">
+        <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-4 lg:p-6 rounded-t-lg">
+          <h2 className="text-xl lg:text-2xl font-bold flex items-center gap-2">
+            <Check className="w-5 h-5 lg:w-6 lg:h-6" />
             Finalização da Venda
           </h2>
-          <p className="text-red-100 mt-2">Revise os dados e confirme a venda</p>
+          <p className="text-red-100 mt-2 text-sm lg:text-base">Revise os dados e confirme a venda</p>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 w-full" ref={pdfRef}>
           {/* Alerta de produtos com preço inválido */}
           {temProdutosInvalidos && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
               <div className="flex items-center gap-2 text-yellow-800">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+                <AlertCircle className="w-5 h-5" />
                 <p className="font-medium">Atenção: Produtos com preços inválidos</p>
               </div>
-              <p className="text-yellow-700 text-sm mt-1">
+              <p className="text-yellow-700 text-sm mt-1 ml-7">
                 Os seguintes produtos não possuem preços válidos:{" "}
                 {produtosComPrecoInvalido.map((p) => p.name).join(", ")}
               </p>
@@ -245,10 +351,10 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
             </div>
           </section>
 
-          {/* Lista de Produtos */}
-          <section className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <h3 className="font-semibold text-lg mb-3 flex items-center gap-2 text-gray-800">
-              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {/* Lista de Produtos - Make table fully responsive */}
+          <section className="bg-gray-50 rounded-lg p-3 lg:p-4 border border-gray-200 w-full">
+            <h3 className="font-semibold text-base lg:text-lg mb-3 flex items-center gap-2 text-gray-800">
+              <svg className="w-4 h-4 lg:w-5 lg:h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -258,59 +364,81 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
               </svg>
               Produtos ({produtos.length})
             </h3>
-            <div className="space-y-3">
-              {produtos.map((p) => {
-                const precoInvalido = !p.price || isNaN(p.price) || p.price <= 0
-                const subtotal = (p.price || 0) * (p.quantidade || 0)
-                return (
-                  <div
-                    key={p.product_id}
-                    className={`flex justify-between items-center p-3 rounded border ${precoInvalido ? "border-red-300 bg-red-50" : "border-gray-200 bg-white"
-                      }`}
-                  >
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-800">{p.name}</p>
-                      <p className="text-sm text-gray-600">
-                        {precoInvalido ? (
-                          <span className="text-red-600 font-medium">Preço inválido</span>
-                        ) : (
-                          <>
-                            {formatarPreco(p.price)} × {p.quantidade}
-                            {p.zoneamento && (
-                              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                {p.zoneamento}
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Subtotal: {precoInvalido ? "R$ 0,00" : formatarPreco(subtotal)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      {precoInvalido ? (
-                        <p className="font-semibold text-red-600">R$ 0,00</p>
-                      ) : (
-                        <p className="font-semibold text-gray-800">{formatarPreco(subtotal)}</p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="mt-4 pt-3 border-t border-gray-300 flex justify-between items-center">
-              <span className="text-gray-600">
-                <span className="font-medium">{totalItens}</span> item{totalItens !== 1 ? "s" : ""} no total
-              </span>
-              <span className="text-lg font-bold text-gray-800">Subtotal: {formatarPreco(total)}</span>
+            <div className="w-full overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Produto
+                    </th>
+                    <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Preço Unit.
+                    </th>
+                    <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Qtd
+                    </th>
+                    <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Subtotal
+                    </th>
+                    <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                      Zoneamento
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {produtos.map((p) => {
+                    const precoInvalido = !p.price || isNaN(p.price) || p.price <= 0
+                    const subtotal = (p.price || 0) * (p.quantidade || 0)
+                    return (
+                      <tr key={p.product_id} className={precoInvalido ? "bg-red-50" : ""}>
+                        <td className="px-2 lg:px-4 py-2 lg:py-3">
+                          <div className="text-xs lg:text-sm font-medium text-gray-900">{p.name}</div>
+                          <div className="text-xs text-gray-500">{p.product_type}</div>
+                          <div className="sm:hidden text-xs text-gray-500 mt-1">
+                            {p.zoneamento && `Zona: ${p.zoneamento}`}
+                          </div>
+                        </td>
+                        <td className="px-2 lg:px-4 py-2 lg:py-3">
+                          <div
+                            className={`text-xs lg:text-sm ${precoInvalido ? "text-red-600 font-medium" : "text-gray-900"}`}
+                          >
+                            {precoInvalido ? "Preço inválido" : formatarPreco(p.price)}
+                          </div>
+                        </td>
+                        <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-gray-900">{p.quantidade}</td>
+                        <td className="px-2 lg:px-4 py-2 lg:py-3">
+                          <div className="text-xs lg:text-sm font-medium text-gray-900">
+                            {precoInvalido ? "R$ 0,00" : formatarPreco(subtotal)}
+                          </div>
+                        </td>
+                        <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-gray-500 hidden sm:table-cell">
+                          {p.zoneamento || "-"}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot className="bg-gray-50">
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-medium text-gray-500 text-right"
+                    >
+                      Total ({totalItens} {totalItens === 1 ? "item" : "itens"})
+                    </td>
+                    <td colSpan={2} className="px-2 lg:px-4 py-2 lg:py-3 text-sm lg:text-base font-bold text-red-700">
+                      {formatarPreco(total)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </section>
 
-          {/* Método de Pagamento */}
-          <section className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <h3 className="font-semibold text-lg mb-3 flex items-center gap-2 text-gray-800">
-              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {/* Método de Pagamento - Responsive grid */}
+          <section className="bg-gray-50 rounded-lg p-3 lg:p-4 border border-gray-200 w-full">
+            <h3 className="font-semibold text-base lg:text-lg mb-3 flex items-center gap-2 text-gray-800">
+              <svg className="w-4 h-4 lg:w-5 lg:h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -320,11 +448,11 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
               </svg>
               Método de Pagamento
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-3 w-full">
               {metodoPagamentoOptions.map((option) => (
                 <label
                   key={option.value}
-                  className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${metodoPagamento === option.value
+                  className={`flex items-center justify-center p-2 lg:p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${metodoPagamento === option.value
                     ? "border-red-500 bg-red-50 text-red-700"
                     : "border-gray-300 bg-white hover:border-gray-400"
                     }`}
@@ -338,8 +466,8 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
                     className="sr-only"
                   />
                   <span className="text-center">
-                    <div className="text-2xl mb-1">{option.icon}</div>
-                    <div className="text-sm font-medium">{option.label.replace(/^.+ /, "")}</div>
+                    <div className="text-lg lg:text-2xl mb-1">{option.icon}</div>
+                    <div className="text-xs lg:text-sm font-medium">{option.label}</div>
                   </span>
                 </label>
               ))}
@@ -394,64 +522,70 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
             >
               <div className="flex items-center gap-2">
                 {mensagem.includes("Erro") || mensagem.includes("inválido") ? (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+                  <AlertCircle className="w-5 h-5" />
                 ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+                  <Check className="w-5 h-5" />
                 )}
                 <p className="font-medium">{mensagem}</p>
               </div>
             </div>
           )}
 
-          {/* Botão de Finalizar */}
-          <button
-            onClick={handleFinalizarVenda}
-            disabled={loadingVenda || produtos.length === 0 || total <= 0 || temProdutosInvalidos}
-            className={`w-full py-4 px-6 rounded-lg font-semibold text-lg transition-all duration-200 flex items-center justify-center gap-2 ${loadingVenda || produtos.length === 0 || total <= 0 || temProdutosInvalidos
-              ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-              : "bg-red-700 text-white hover:bg-red-800 hover:shadow-lg transform hover:scale-[1.02]"
-              }`}
-          >
-            {loadingVenda ? (
-              <>
-                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Finalizando Venda...
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Finalizar Venda - {formatarPreco(total)}
-              </>
+          {/* Botões de Ação - Responsive layout */}
+          <div className="flex flex-col gap-3 pt-4 w-full">
+            <Button
+              onClick={handleFinalizarVenda}
+              disabled={
+                loadingVenda || produtos.length === 0 || total <= 0 || temProdutosInvalidos || vendaFinalizada !== null
+              }
+              className="w-full py-4 lg:py-6 bg-red-700 hover:bg-red-800 text-white text-sm lg:text-base"
+              size="lg"
+            >
+              {loadingVenda ? (
+                <>
+                  <Loader2 className="w-4 h-4 lg:w-5 lg:h-5 mr-2 animate-spin" />
+                  Finalizando Venda...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
+                  Finalizar Venda - {formatarPreco(total)}
+                </>
+              )}
+            </Button>
+
+            {vendaFinalizada && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                <Button
+                  onClick={gerarPDF}
+                  disabled={gerando}
+                  className="w-full py-4 lg:py-6 bg-blue-600 hover:bg-blue-700 text-white text-sm lg:text-base"
+                  size="lg"
+                >
+                  {gerando ? (
+                    <>
+                      <Loader2 className="w-4 h-4 lg:w-5 lg:h-5 mr-2 animate-spin" />
+                      Gerando PDF...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
+                      Gerar Relatório PDF
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={() => window.print()}
+                  className="w-full py-4 lg:py-6 bg-gray-600 hover:bg-gray-700 text-white text-sm lg:text-base"
+                  size="lg"
+                >
+                  <Printer className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
+                  Imprimir
+                </Button>
+              </div>
             )}
-          </button>
+          </div>
         </div>
       </div>
     </div>

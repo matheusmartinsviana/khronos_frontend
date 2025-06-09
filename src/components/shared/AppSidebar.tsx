@@ -18,12 +18,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 const items = [
     {
         title: "Dashboard",
-        url: "/dashboard",
+        url: "/",
         icon: LayoutDashboard,
     },
     {
-        title: "Venda",
-        url: "/venda",
+        title: "Vendas",
+        url: "/vendas",
         icon: CircleDollarSign,
     },
     {
@@ -36,11 +36,11 @@ const items = [
         url: "/produtos",
         icon: PackageSearch,
     },
-    {
-        title: "Serviços",
-        url: "/servicos",
-        icon: Drill,
-    },
+    // {
+    //     title: "Serviços",
+    //     url: "/servicos",
+    //     icon: Drill,
+    // },
     {
         title: "Configurações",
         url: "/configuracoes",

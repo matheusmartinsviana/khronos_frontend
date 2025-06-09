@@ -6,61 +6,46 @@ interface StepperProps {
 }
 
 const Stepper: React.FC<StepperProps> = ({ currentStep, steps }) => {
-    const stepperStyle: React.CSSProperties = {
-        display: "flex",
-        alignItems: "center",
-        marginBottom: "1.5rem",
-        padding: "1rem",
-        backgroundColor: "white",
-    }
-
-    const stepStyle: React.CSSProperties = {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flex: 1,
-        width: "100%",
-    }
-
-    const stepNumberStyle = (isActive: boolean, isCompleted: boolean): React.CSSProperties => ({
-        width: "32px",
-        height: "32px",
-        borderRadius: "50%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "14px",
-        fontWeight: "bold",
-        marginRight: "8px",
-        backgroundColor: isCompleted ? "#28a745" : isActive ? "#a31c1e" : "#e9ecef",
-        color: isCompleted || isActive ? "white" : "#6c757d",
-        transition: "all 0.3s ease",
-    })
-
-    const stepLabelStyle = (isActive: boolean): React.CSSProperties => ({
-        fontSize: "14px",
-        fontWeight: isActive ? "600" : "normal",
-        color: isActive ? "#a31c1e" : "#6c757d",
-        transition: "all 0.3s ease",
-    })
-
-    const lineStyle = (isCompleted: boolean): React.CSSProperties => ({
-        flex: 1,
-        height: "2px",
-        backgroundColor: isCompleted ? "#28a745" : "#e9ecef",
-        margin: "0 0.5rem",
-        transition: "all 0.3s ease",
-    })
-
     return (
-        <div style={stepperStyle}>
+        <div className="flex items-center w-full mb-4 lg:mb-6 p-3 lg:p-4 bg-white rounded-lg shadow-sm">
             {steps.map((step, index) => (
                 <React.Fragment key={index}>
-                    <div style={stepStyle}>
-                        <div style={stepNumberStyle(index === currentStep, index < currentStep)}>{index + 1}</div>
-                        <span style={stepLabelStyle(index === currentStep)}>{step}</span>
+                    <div className="flex items-center flex-col flex-1 relative">
+                        {/* Connection line */}
+                        {index > 0 && (
+                            <div
+                                className={`absolute left-0 right-0 top-4 h-1 -translate-y-1/2 ${index <= currentStep ? "bg-red-600" : "bg-gray-200"
+                                    }`}
+                                style={{ width: "calc(100% - 2rem)", left: "-50%", zIndex: 0 }}
+                            />
+                        )}
+
+                        {/* Step circle */}
+                        <div
+                            className={`w-7 h-7 lg:w-8 lg:h-8 rounded-full flex items-center justify-center text-xs lg:text-sm font-semibold z-10 transition-all duration-300 ${index < currentStep
+                                ? "bg-green-500 text-white"
+                                : index === currentStep
+                                    ? "bg-red-600 text-white ring-4 ring-red-100"
+                                    : "bg-gray-200 text-gray-600"
+                                }`}
+                        >
+                            {index < currentStep ? (
+                                <svg className="w-3 h-3 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                            ) : (
+                                index + 1
+                            )}
+                        </div>
+
+                        {/* Step label */}
+                        <span
+                            className={`mt-1 lg:mt-2 text-xs font-medium text-center transition-colors duration-300 px-1 ${index === currentStep ? "text-red-600" : "text-gray-600"
+                                }`}
+                        >
+                            {step}
+                        </span>
                     </div>
-                    {index < steps.length - 1 && <div style={lineStyle(index < currentStep)} />}
                 </React.Fragment>
             ))}
         </div>
