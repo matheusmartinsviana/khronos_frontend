@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, type ReactNode }
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api"; // axios configurado
 import { LoadingWithLogo } from "@/components/shared/Loading";
+import { validateToken } from "@/api/auth";
 
 interface AuthContextProps {
     isAuthenticated: boolean;
@@ -19,13 +20,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        const storedToken = localStorage.getItem("authToken");
-        if (storedToken) {
-            setToken(storedToken);
-            setIsAuthenticated(true);
-            api.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
-        }
-        setLoading(false);
+        const checkToken = async () => {
+            const storedToken = localStorage.getItem("authToken");
+            if (storedToken) {
+                api.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
+                try {
+                    await validateToken();
+                    setToken(storedToken);
+                    setIsAuthenticated(true);
+                } catch {
+                    localStorage.removeItem("authToken");
+                    setToken(null);
+                    setIsAuthenticated(false);
+                }
+            }
+            setLoading(false);
+        };
+        checkToken();
     }, []);
 
     if (loading) {
