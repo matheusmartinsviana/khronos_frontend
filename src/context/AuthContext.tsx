@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api"; // axios configurado
+import { LoadingWithLogo } from "@/components/shared/Loading";
 
 interface AuthContextProps {
     isAuthenticated: boolean;
@@ -28,7 +29,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     if (loading) {
-        return <div>Carregando...</div>; // loader personalizado
+        return <LoadingWithLogo />; // loader personalizado
     }
 
     const login = (newToken: string) => {
