@@ -1,5 +1,5 @@
 import { useAuth } from "@/context/AuthContext"; // ajuste o caminho se necessário
-import { LogOut, LayoutDashboard, CircleDollarSign, Users, PackageSearch } from "lucide-react"
+import { LogOut, LayoutDashboard, CircleDollarSign, Users, PackageSearch, Wrench } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -12,6 +12,7 @@ import {
   SidebarMenuItem,
 } from "../ui/sidebar"
 import { Link } from "react-router-dom"
+import { useUser } from "@/context/UserContext";
 
 // Menu items.
 const items = [
@@ -35,10 +36,16 @@ const items = [
     url: "/produtos",
     icon: PackageSearch,
   },
+  {
+    title: "Serviços",
+    url: "/servicos",
+    icon: Wrench,
+  },
 ]
 
 export function AppSidebar() {
-  const { logout } = useAuth(); // ⬅️ Usa o hook de autenticação
+  const { logout } = useAuth();
+  const { user } = useUser();
 
   return (
     <Sidebar collapsible="icon">
@@ -57,6 +64,16 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {user?.role === "admin" && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link className="gap-5" to="/usuarios">
+                      <Users color="var(--primary-color)" />
+                      <span>Usuários</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

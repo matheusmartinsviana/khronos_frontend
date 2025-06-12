@@ -89,3 +89,41 @@ export interface NotificationState {
   type: "success" | "error" | "info"
   message: string
 }
+
+export interface Servico {
+  product_id: number
+  name: string
+  code: string | null
+  price: number
+  description: string | null
+  zoning: string | null
+  product_type: string
+  observation: string | null
+  segment: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ServicoSelecionado extends Servico {
+  quantidade: number
+  zoneamento: string
+}
+
+export interface Categoria {
+  id: number
+  name: string
+  description?: string
+}
+
+export interface NotificationState {
+  show: boolean
+  type: "success" | "error" | "info"
+  message: string
+}
+
+export interface User {
+  user_id: number
+  name: string
+  email: string
+  role?: string
+}

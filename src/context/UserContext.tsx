@@ -6,6 +6,7 @@ interface User {
     user_id: number;
     name: string;
     email: string;
+    role: string;
     // adicione outros campos conforme sua API
 }
 

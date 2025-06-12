@@ -4,7 +4,6 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom"
 import Layout from "../layout/Layout"
 import Login from "@/pages/Login"
 import Sale from "@/pages/Sale"
-import Services from "@/pages/Services"
 import Settings from "@/pages/Settings"
 import Dashboard from "@/pages/Dashboard"
 import Home2 from "@/pages/HomeN"
@@ -14,6 +13,8 @@ import { UserProvider } from "@/context/UserContext"
 import ClientesPage from "@/pages/customer"
 import ProductsPage from "@/pages/product"
 import { PageTracker } from "@/utils/page-tracker"
+import UsersPage from "@/pages/user"
+import ServicosPage from "@/pages/service"
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
     const { isAuthenticated } = useAuth()
@@ -44,7 +45,8 @@ export default function AppRoutes() {
                             <Route path="/clientes/:id" element={<ClientesPage />} />
                             <Route path="/produtos" element={<ProductsPage />} />
                             <Route path="/produtos/novo" element={<ProductsPage />} />
-                            <Route path="/servicos" element={<Services />} />
+                            <Route path="/servicos" element={<ServicosPage />} />
+                            <Route path="/usuarios" element={<UsersPage />} />
                             <Route path="/configuracoes" element={<Settings />} />
                         </Route>
                     </Routes>
