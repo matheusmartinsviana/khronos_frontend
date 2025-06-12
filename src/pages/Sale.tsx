@@ -410,10 +410,10 @@ export default function SalesPage() {
     if (!showSalesProcess) {
         return (
             <div className="w-full min-h-screen">
-                <div className="mx-auto p-4 sm:p-6">
+                <div className="mx-auto pr-4 pt-4 pb-4">
                     <SalesDashboard onIniciarVenda={handleIniciarNovaVenda} onShowNotification={showNotification} />
                 </div>
-                <AutoSaveIndicator lastSaved={draft?.lastSaved} isSaving={isSaving} />
+                {/* <AutoSaveIndicator lastSaved={draft?.lastSaved} isSaving={isSaving} /> */}
                 <Notification
                     notification={notification}
                     onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
@@ -597,7 +597,7 @@ export default function SalesPage() {
                 </div>
             </div>
 
-            <AutoSaveIndicator lastSaved={draft?.lastSaved} isSaving={isSaving} />
+            {/* <AutoSaveIndicator lastSaved={draft?.lastSaved} isSaving={isSaving} /> */}
             <Notification notification={notification} onClose={() => setNotification((prev) => ({ ...prev, show: false }))} />
         </div>
     )
