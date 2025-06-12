@@ -1,10 +1,7 @@
-
-
 import type React from "react"
 import { useEffect, useState } from "react"
 import { getCustomers } from "@/api/customer-api"
 import type { Cliente } from "@/types"
-// Importe o novo componente ClienteModal
 import ClienteModal from "./ClienteModal"
 
 interface Step1Props {
@@ -15,7 +12,6 @@ interface Step1Props {
 
 const Step1_SelecionarCliente: React.FC<Step1Props> = ({ onClienteSelect, clienteSelecionado, onShowNotification }) => {
     const [clientes, setClientes] = useState<Cliente[]>([])
-    // Substitua o estado mostrarCadastro por isModalOpen
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [filtro, setFiltro] = useState("")
     const [loading, setLoading] = useState(true)
@@ -42,7 +38,7 @@ const Step1_SelecionarCliente: React.FC<Step1Props> = ({ onClienteSelect, client
         } catch (error) {
             console.error("Erro ao buscar clientes:", error)
             onShowNotification("error", "Erro ao buscar clientes. Tente novamente mais tarde.")
-            setClientes([]) // Set empty array as fallback
+            setClientes([])
         } finally {
             setLoading(false)
         }
@@ -73,18 +69,6 @@ const Step1_SelecionarCliente: React.FC<Step1Props> = ({ onClienteSelect, client
         onShowNotification("success", `Cliente ${cliente.name} selecionado!`)
     }
 
-    // Substitua o bloco de código que verifica mostrarCadastro pelo seguinte:
-    // Remova este bloco:
-    // if (mostrarCadastro) {
-    //   return (
-    //     <CadastroCliente
-    //       onSave={handleNovoCliente}
-    //       onCancel={() => setMostrarCadastro(false)}
-    //       onShowNotification={onShowNotification}
-    //     />
-    //   )
-    // }
-
     return (
         <div className="p-4 lg:p-6 flex flex-col w-full">
             <h2 className="text-lg lg:text-xl font-semibold text-gray-800 mb-4">Selecionar Cliente</h2>
@@ -97,7 +81,6 @@ const Step1_SelecionarCliente: React.FC<Step1Props> = ({ onClienteSelect, client
                     onChange={(e) => setFiltro(e.target.value)}
                     className="border border-gray-300 rounded px-3 py-2 text-sm w-full sm:max-w-xs focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                 />
-                {/* Substitua o botão "+ Novo Cliente" pelo seguinte: */}
                 <button
                     onClick={() => setIsModalOpen(true)}
                     className="bg-red-700 text-white px-4 py-2 rounded hover:bg-red-800 text-sm transition-colors duration-200 w-full sm:w-auto whitespace-nowrap"
@@ -163,7 +146,7 @@ const Step1_SelecionarCliente: React.FC<Step1Props> = ({ onClienteSelect, client
                     </span>
                 </div>
             )}
-            {/* Modal de cadastro de cliente */}
+
             <ClienteModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}

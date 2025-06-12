@@ -2,17 +2,19 @@
 
 import type React from "react"
 import { useState } from "react"
-import type { Cliente, ProdutoSelecionado, Venda } from "@/types"
+import type { Cliente, ProdutoSelecionado, ServicoSelecionado, Venda } from "@/types"
 import { createSale } from "@/api/sale"
 import { verifyUserSalesperson } from "@/api/user"
-import { useUser } from "@/context/UserContext"
 import { Button } from "@/components/ui/button"
-import { Printer, FileText, Check, AlertCircle, Loader2, ExternalLink } from "lucide-react"
+import { Printer, FileText, Check, AlertCircle, Loader2, ExternalLink, Package, Wrench } from 'lucide-react'
 import { downloadPDF, openPDFInNewTab, convertVendaForPDF } from "@/lib/generate-pdf"
+import { useUser } from "@/context/UserContext"
+import { api } from "@/api"
 
-interface Step4Props {
+interface Step5Props {
   cliente: Cliente
   produtos: ProdutoSelecionado[]
+  servicos: ServicoSelecionado[]
   onFinalizarVenda: (venda: Venda) => void
   onShowNotification?: (type: "success" | "error" | "info", message: string) => void
 }
@@ -24,7 +26,7 @@ const formatarPreco = (valor?: number) => {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
-const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinalizarVenda, onShowNotification }) => {
+const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, onFinalizarVenda, onShowNotification }) => {
   const { user } = useUser()
   const [metodoPagamento, setMetodoPagamento] = useState<"dinheiro" | "cartao" | "pix" | "boleto">("dinheiro")
   const [loadingVenda, setLoadingVenda] = useState(false)
@@ -33,13 +35,23 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
   const [vendaFinalizada, setVendaFinalizada] = useState<Venda | null>(null)
   const [gerando, setGerando] = useState(false)
 
-  const total = produtos.reduce((sum, p) => {
+  // Combinar produtos e serviços para cálculos
+  const todosItens = [...(produtos || []), ...(servicos || [])]
+
+  const totalProdutos = (produtos || []).reduce((sum, p) => {
     const preco = typeof p.price === "number" && !isNaN(p.price) ? p.price : 0
     const qtd = typeof p.quantidade === "number" && !isNaN(p.quantidade) ? p.quantidade : 0
     return sum + preco * qtd
   }, 0)
 
-  const totalItens = produtos.reduce((sum, p) => sum + (p.quantidade || 0), 0)
+  const totalServicos = (servicos || []).reduce((sum, s) => {
+    const preco = typeof s.price === "number" && !isNaN(s.price) ? s.price : 0
+    const qtd = typeof s.quantidade === "number" && !isNaN(s.quantidade) ? s.quantidade : 0
+    return sum + preco * qtd
+  }, 0)
+
+  const total = totalProdutos + totalServicos
+  const totalItens = todosItens.reduce((sum, item) => sum + (item.quantidade || 0), 0)
 
   const handleFinalizarVenda = async () => {
     if (!user) {
@@ -49,8 +61,8 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
       return
     }
 
-    if (produtos.length === 0) {
-      const errorMsg = "Selecione pelo menos um produto."
+    if (todosItens.length === 0) {
+      const errorMsg = "Selecione pelo menos um produto ou serviço."
       setMensagem(errorMsg)
       onShowNotification?.("error", errorMsg)
       return
@@ -70,10 +82,10 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
       return
     }
 
-    // Validar se todos os produtos têm preço válido
-    const produtosSemPreco = produtos.filter((p) => !p.price || isNaN(p.price) || p.price <= 0)
-    if (produtosSemPreco.length > 0) {
-      const errorMsg = `Os seguintes produtos não possuem preço válido: ${produtosSemPreco.map((p) => p.name).join(", ")}`
+    // Validar se todos os itens têm preço válido
+    const itensSemPreco = todosItens.filter((item) => !item.price || isNaN(item.price) || item.price <= 0)
+    if (itensSemPreco.length > 0) {
+      const errorMsg = `Os seguintes itens não possuem preço válido: ${itensSemPreco.map((item) => item.name).join(", ")}`
       setMensagem(errorMsg)
       onShowNotification?.("error", errorMsg)
       return
@@ -95,18 +107,18 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
       const vendaPayload = {
         seller_id: vendedor.seller_id,
         customer_id: cliente.customer_id,
-        products: produtos.map((p) => {
-          const preco = typeof p.price === "number" && !isNaN(p.price) ? p.price : 0
-          const quantidade = typeof p.quantidade === "number" && !isNaN(p.quantidade) ? p.quantidade : 1
+        products: todosItens.map((item) => {
+          const preco = typeof item.price === "number" && !isNaN(item.price) ? item.price : 0
+          const quantidade = typeof item.quantidade === "number" && !isNaN(item.quantidade) ? item.quantidade : 1
           const subtotal = preco * quantidade
 
           return {
-            product_id: p.product_id,
+            product_id: item.product_id,
             quantidade: quantidade,
             price: Number(preco.toFixed(2)),
             product_price: Number(preco.toFixed(2)),
             total_sales: Number(subtotal.toFixed(2)),
-            zoneamento: p.zoneamento || "",
+            zoneamento: item.zoneamento || "",
           }
         }),
         payment_method: metodoPagamento,
@@ -119,6 +131,7 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
       }
 
       const saleResponse = await createSale(vendaPayload)
+
       const vendaCriada = saleResponse.data as Venda
       setVendaFinalizada(vendaCriada)
 
@@ -159,7 +172,7 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
 
     try {
       // Usar a função utilitária para converter os dados
-      const vendaParaPDF = convertVendaForPDF(vendaFinalizada, cliente, produtos, user!)
+      const vendaParaPDF = convertVendaForPDF(vendaFinalizada, cliente, todosItens, user!)
 
       downloadPDF(vendaParaPDF)
       onShowNotification?.("success", "Relatório HTML gerado e baixado com sucesso!")
@@ -176,7 +189,7 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
 
     try {
       // Usar a função utilitária para converter os dados
-      const vendaParaPDF = convertVendaForPDF(vendaFinalizada, cliente, produtos, user!)
+      const vendaParaPDF = convertVendaForPDF(vendaFinalizada, cliente, todosItens, user!)
 
       openPDFInNewTab(vendaParaPDF)
     } catch (error) {
@@ -192,16 +205,9 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
     { value: "boleto", label: "Boleto", icon: "📄" },
   ]
 
-  const metodoPagamentoLabels: Record<string, string> = {
-    dinheiro: "Dinheiro",
-    cartao: "Cartão",
-    pix: "PIX",
-    boleto: "Boleto",
-  }
-
-  // Verificar se há produtos com preços inválidos
-  const produtosComPrecoInvalido = produtos.filter((p) => !p.price || isNaN(p.price) || p.price <= 0)
-  const temProdutosInvalidos = produtosComPrecoInvalido.length > 0
+  // Verificar se há itens com preços inválidos
+  const itensComPrecoInvalido = todosItens.filter((item) => !item.price || isNaN(item.price) || item.price <= 0)
+  const temItensInvalidos = itensComPrecoInvalido.length > 0
 
   return (
     <div className="w-full p-4 lg:p-6">
@@ -215,16 +221,16 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
         </div>
 
         <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 w-full">
-          {/* Alerta de produtos com preço inválido */}
-          {temProdutosInvalidos && (
+          {/* Alerta de itens com preço inválido */}
+          {temItensInvalidos && (
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
               <div className="flex items-center gap-2 text-yellow-800">
                 <AlertCircle className="w-5 h-5" />
-                <p className="font-medium">Atenção: Produtos com preços inválidos</p>
+                <p className="font-medium">Atenção: Itens com preços inválidos</p>
               </div>
               <p className="text-yellow-700 text-sm mt-1 ml-7">
-                Os seguintes produtos não possuem preços válidos:{" "}
-                {produtosComPrecoInvalido.map((p) => p.name).join(", ")}
+                Os seguintes itens não possuem preços válidos:{" "}
+                {itensComPrecoInvalido.map((item) => item.name).join(", ")}
               </p>
             </div>
           )}
@@ -260,25 +266,24 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
             </div>
           </section>
 
-          {/* Lista de Produtos */}
+          {/* Lista de Produtos e Serviços */}
           <section className="bg-gray-50 rounded-lg p-3 lg:p-4 border border-gray-200 w-full">
             <h3 className="font-semibold text-base lg:text-lg mb-3 flex items-center gap-2 text-gray-800">
-              <svg className="w-4 h-4 lg:w-5 lg:h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                />
-              </svg>
-              Produtos ({produtos.length})
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 lg:w-5 lg:h-5 text-blue-600" />
+                <Wrench className="w-4 h-4 lg:w-5 lg:h-5 text-green-600" />
+              </div>
+              Produtos e Serviços ({todosItens.length})
             </h3>
             <div className="w-full overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-100">
                   <tr>
                     <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Produto
+                      Item
+                    </th>
+                    <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tipo
                     </th>
                     <th className="px-2 lg:px-4 py-2 lg:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Preço Unit.
@@ -295,33 +300,48 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {produtos.map((p) => {
-                    const precoInvalido = !p.price || isNaN(p.price) || p.price <= 0
-                    const subtotal = (p.price || 0) * (p.quantidade || 0)
+                  {todosItens.map((item) => {
+                    const precoInvalido = !item.price || isNaN(item.price) || item.price <= 0
+                    const subtotal = (item.price || 0) * (item.quantidade || 0)
+                    const isProduto = produtos.some(p => p.product_id === item.product_id)
+                    const isServico = servicos.some(s => s.product_id === item.product_id)
+
                     return (
-                      <tr key={p.product_id} className={precoInvalido ? "bg-red-50" : ""}>
+                      <tr key={item.product_id} className={precoInvalido ? "bg-red-50" : ""}>
                         <td className="px-2 lg:px-4 py-2 lg:py-3">
-                          <div className="text-xs lg:text-sm font-medium text-gray-900">{p.name}</div>
-                          <div className="text-xs text-gray-500">{p.product_type}</div>
-                          <div className="sm:hidden text-xs text-gray-500 mt-1">
-                            {p.zoneamento && `Zona: ${p.zoneamento}`}
+                          <div className="flex items-center gap-2">
+                            {isProduto && <Package className="w-4 h-4 text-blue-600" />}
+                            {isServico && <Wrench className="w-4 h-4 text-green-600" />}
+                            <div>
+                              <div className="text-xs lg:text-sm font-medium text-gray-900">{item.name}</div>
+                              <div className="text-xs text-gray-500">{item.product_type}</div>
+                            </div>
                           </div>
+                          <div className="sm:hidden text-xs text-gray-500 mt-1">
+                            {item.zoneamento && `Zona: ${item.zoneamento}`}
+                          </div>
+                        </td>
+                        <td className="px-2 lg:px-4 py-2 lg:py-3">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${isProduto ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                            }`}>
+                            {isProduto ? 'Produto' : 'Serviço'}
+                          </span>
                         </td>
                         <td className="px-2 lg:px-4 py-2 lg:py-3">
                           <div
                             className={`text-xs lg:text-sm ${precoInvalido ? "text-red-600 font-medium" : "text-gray-900"}`}
                           >
-                            {precoInvalido ? "Preço inválido" : formatarPreco(p.price)}
+                            {precoInvalido ? "Preço inválido" : formatarPreco(item.price)}
                           </div>
                         </td>
-                        <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-gray-900">{p.quantidade}</td>
+                        <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-gray-900">{item.quantidade}</td>
                         <td className="px-2 lg:px-4 py-2 lg:py-3">
                           <div className="text-xs lg:text-sm font-medium text-gray-900">
                             {precoInvalido ? "R$ 0,00" : formatarPreco(subtotal)}
                           </div>
                         </td>
                         <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-gray-500 hidden sm:table-cell">
-                          {p.zoneamento || "-"}
+                          {item.zoneamento || "-"}
                         </td>
                       </tr>
                     )
@@ -330,7 +350,7 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
                 <tfoot className="bg-gray-50">
                   <tr>
                     <td
-                      colSpan={3}
+                      colSpan={4}
                       className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm font-medium text-gray-500 text-right"
                     >
                       Total ({totalItens} {totalItens === 1 ? "item" : "itens"})
@@ -362,8 +382,8 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
                 <label
                   key={option.value}
                   className={`flex items-center justify-center p-2 lg:p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${metodoPagamento === option.value
-                      ? "border-red-500 bg-red-50 text-red-700"
-                      : "border-gray-300 bg-white hover:border-gray-400"
+                    ? "border-red-500 bg-red-50 text-red-700"
+                    : "border-gray-300 bg-white hover:border-gray-400"
                     }`}
                 >
                   <input
@@ -405,18 +425,41 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
             />
           </section>
 
-          {/* Total */}
+          {/* Resumo Total */}
           <section className="bg-gradient-to-r from-gray-100 to-gray-200 rounded-lg p-6 border border-gray-300">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-gray-600 text-sm">Total da Venda</p>
-                <p className="text-gray-600 text-xs">
-                  {produtos.length} produto{produtos.length !== 1 ? "s" : ""} • {totalItens} item
-                  {totalItens !== 1 ? "s" : ""}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-red-700">{formatarPreco(total)}</p>
+            <div className="space-y-2">
+              {produtos.length > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 flex items-center">
+                    <Package className="w-4 h-4 mr-2 text-blue-600" />
+                    Produtos ({produtos.length})
+                  </span>
+                  <span className="font-semibold text-blue-700">{formatarPreco(totalProdutos)}</span>
+                </div>
+              )}
+
+              {servicos.length > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 flex items-center">
+                    <Wrench className="w-4 h-4 mr-2 text-green-600" />
+                    Serviços ({servicos.length})
+                  </span>
+                  <span className="font-semibold text-green-700">{formatarPreco(totalServicos)}</span>
+                </div>
+              )}
+
+              <hr className="border-gray-400" />
+
+              <div className="flex justify-between items-center pt-2">
+                <div>
+                  <p className="text-gray-600 text-sm">Total da Venda</p>
+                  <p className="text-gray-600 text-xs">
+                    {todosItens.length} item{todosItens.length !== 1 ? "s" : ""} • {totalItens} unidade{totalItens !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-red-700">{formatarPreco(total)}</p>
+                </div>
               </div>
             </div>
           </section>
@@ -425,8 +468,8 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
           {mensagem && (
             <div
               className={`p-4 rounded-lg border ${mensagem.includes("Erro") || mensagem.includes("inválido")
-                  ? "bg-red-50 border-red-200 text-red-800"
-                  : "bg-green-50 border-green-200 text-green-800"
+                ? "bg-red-50 border-red-200 text-red-800"
+                : "bg-green-50 border-green-200 text-green-800"
                 }`}
             >
               <div className="flex items-center gap-2">
@@ -445,7 +488,7 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
             <Button
               onClick={handleFinalizarVenda}
               disabled={
-                loadingVenda || produtos.length === 0 || total <= 0 || temProdutosInvalidos || vendaFinalizada !== null
+                loadingVenda || todosItens.length === 0 || total <= 0 || temItensInvalidos || vendaFinalizada !== null
               }
               className="w-full py-4 lg:py-6 bg-red-700 hover:bg-red-800 text-white text-sm lg:text-base"
               size="lg"
@@ -464,7 +507,7 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
             </Button>
 
             {vendaFinalizada && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
                 <Button
                   onClick={handleGerarPDF}
                   disabled={gerando}
@@ -492,15 +535,6 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
                   <ExternalLink className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
                   Visualizar
                 </Button>
-
-                {/* <Button
-                  onClick={() => window.print()}
-                  className="w-full py-4 lg:py-6 bg-gray-600 hover:bg-gray-700 text-white text-sm lg:text-base"
-                  size="lg"
-                >
-                  <Printer className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
-                  Imprimir
-                </Button> */}
               </div>
             )}
           </div>
@@ -510,4 +544,4 @@ const Step4_Finalizacao: React.FC<Step4Props> = ({ cliente, produtos, onFinaliza
   )
 }
 
-export default Step4_Finalizacao
+export default Step5_Finalizacao
