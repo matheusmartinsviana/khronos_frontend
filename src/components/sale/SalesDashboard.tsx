@@ -11,6 +11,7 @@ import {
     DollarSign,
     Sun,
     TrendingUp,
+    User,
 } from "lucide-react"
 import { getSalesByUser } from "@/api/sale"
 import { useUser } from "@/context/UserContext"
@@ -49,9 +50,19 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                 // Mapear os dados do backend para o formato esperado pelo frontend
                 const vendasMapeadas: Venda[] = vendasData.map((venda: any) => ({
                     sale_id: venda.sale_id,
-                    seller_id: venda.seller_id,
-                    customer_id: venda.customer_id,
-                    products: venda.ProductSales || [],
+                    seller_id: venda.Salesperson?.seller_id,
+                    customer_id: venda.Customer?.customer_id,
+                    customer_name: venda.Customer?.name,
+                    customer_email: venda.Customer?.email,
+                    products:
+                        venda.ProductSales?.map((ps: any) => ({
+                            product_sale_id: ps.product_sale_id,
+                            product_id: ps.Product?.product_id,
+                            name: ps.Product?.name,
+                            price: ps.product_price,
+                            total_sales: ps.total_sales,
+                            total: ps.product_price * ps.total_sales,
+                        })) || [],
                     payment_method: venda.payment_method || "não informado",
                     total: venda.amount || 0,
                     amount: venda.amount || 0,
@@ -59,6 +70,7 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                     status: venda.status || "concluida",
                     date: venda.date,
                     observacoes: venda.observacoes || "",
+                    seller_email: venda.Salesperson?.User?.email,
                 }))
 
                 const vendasOrdenadas = vendasMapeadas.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -310,11 +322,13 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                                     <div className="flex items-center gap-3">
                                                         <div className="flex-shrink-0">
                                                             <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                                                                <Calendar className="w-5 h-5 text-red-600" />
+                                                                <User className="w-5 h-5 text-red-600" />
                                                             </div>
                                                         </div>
                                                         <div>
-                                                            <div className="text-sm font-medium text-gray-900">Cliente #{venda.customer_id}</div>
+                                                            <div className="text-sm font-medium text-gray-900">
+                                                                {venda.customer_name || `Cliente #${venda.customer_id}`}
+                                                            </div>
                                                             <div className="text-sm text-gray-500 flex items-center gap-1">
                                                                 <Calendar className="w-3 h-3" />
                                                                 {formatarData(venda.date)}
@@ -326,8 +340,9 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                                     <div className="text-sm text-gray-900">
                                                         {venda.products?.length || 0} item{(venda.products?.length || 0) !== 1 ? "s" : ""}
                                                     </div>
-                                                    <div className="text-sm text-gray-500">
-                                                        {venda.observacoes ? venda.observacoes.substring(0, 30) + "..." : "Sem observações"}
+                                                    <div className="text-sm text-gray-500 truncate max-w-[200px]">
+                                                        {venda.products && venda.products.length > 0 ? venda.products[0].name : "Sem produtos"}
+                                                        {venda.products && venda.products.length > 1 && "..."}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -341,7 +356,7 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                                     <span
                                                         className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(venda.status)}`}
                                                     >
-                                                        {venda.status}
+                                                        {venda.status || "Concluída"}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -380,10 +395,12 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                         <div className="flex justify-between items-start mb-3">
                                             <div className="flex items-center gap-3 flex-1">
                                                 <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                                    <Calendar className="w-5 h-5 text-red-600" />
+                                                    <User className="w-5 h-5 text-red-600" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-gray-900 truncate">Cliente #{venda.customer_id}</p>
+                                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                                        {venda.customer_name || `Cliente #${venda.customer_id}`}
+                                                    </p>
                                                     <p className="text-xs text-gray-500 flex items-center gap-1">
                                                         <Calendar className="w-3 h-3" />
                                                         {formatarDataMobile(venda.date)}
@@ -395,7 +412,7 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                                 <span
                                                     className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(venda.status)}`}
                                                 >
-                                                    {venda.status}
+                                                    {venda.status || "Concluída"}
                                                 </span>
                                             </div>
                                         </div>
@@ -412,13 +429,6 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                                 </span>
                                             </div>
                                         </div>
-
-                                        {venda.observacoes && (
-                                            <div className="mb-3 p-2 bg-gray-50 rounded text-xs text-gray-600">
-                                                <span className="font-medium">Obs:</span> {venda.observacoes.substring(0, 50)}
-                                                {venda.observacoes.length > 50 && "..."}
-                                            </div>
-                                        )}
 
                                         <div className="flex justify-between items-center">
                                             <button
@@ -456,6 +466,17 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                                         <span className="text-gray-600 ml-1">{venda.sale_id}</span>
                                                     </div>
                                                     <div className="text-xs">
+                                                        <span className="font-medium text-gray-700">Cliente:</span>
+                                                        <span className="text-gray-600 ml-1">
+                                                            {venda.customer_name || `Cliente #${venda.customer_id}`}
+                                                            {venda.customer_email && ` (${venda.customer_email})`}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-xs">
+                                                        <span className="font-medium text-gray-700">Vendedor:</span>
+                                                        <span className="text-gray-600 ml-1">{venda.seller_email || `ID: ${venda.seller_id}`}</span>
+                                                    </div>
+                                                    <div className="text-xs">
                                                         <span className="font-medium text-gray-700">Tipo:</span>
                                                         <span className="text-gray-600 ml-1 capitalize">{venda.sale_type || "venda"}</span>
                                                     </div>
@@ -469,7 +490,10 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                                             <div className="ml-1 mt-1 space-y-1">
                                                                 {venda.products.slice(0, 3).map((product, index) => (
                                                                     <div key={index} className="text-gray-600 flex justify-between">
-                                                                        <span>{product.name || `Produto ${product.product_id}`}</span>
+                                                                        <div className="flex-1 truncate mr-2">
+                                                                            <span>{product.name || `Produto ${product.product_id}`}</span>
+                                                                            <span className="text-gray-400 ml-1">x{product.total_sales || 1}</span>
+                                                                        </div>
                                                                         <span>{formatarPreco(product.price || 0)}</span>
                                                                     </div>
                                                                 ))}
