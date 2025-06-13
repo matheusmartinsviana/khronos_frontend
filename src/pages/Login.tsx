@@ -96,11 +96,9 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
-      {/* Coluna Vermelha com animações */}
       <div
         className={`lg:w-2/5 bg-gradient-to-br from-red-600 via-red-700 to-red-900 text-white flex flex-col justify-center items-center p-8 lg:p-16 relative overflow-hidden transition-all duration-1000 ${mounted ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"}`}
       >
-        {/* Efeito de fundo animado */}
         <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-transparent animate-pulse"></div>
         <div className="absolute top-10 right-10 w-32 h-32 bg-white/10 rounded-full blur-xl animate-bounce"></div>
         <div className="absolute bottom-20 left-10 w-24 h-24 bg-white/5 rounded-full blur-lg animate-pulse delay-1000"></div>
@@ -246,19 +244,6 @@ export default function Login() {
               )}
             </button>
           </form>
-
-          {/* Link de cadastro */}
-          <div className="mt-8 text-center transform transition-all duration-700 delay-800">
-            <p className="text-gray-600">
-              Ainda não tem conta?{" "}
-              <a
-                href="#"
-                className="text-red-600 font-semibold hover:text-red-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-600/50 rounded-md px-1 hover:underline"
-              >
-                Cadastre-se aqui
-              </a>
-            </p>
-          </div>
         </div>
       </div>
     </div>

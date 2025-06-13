@@ -114,7 +114,7 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
 
           return {
             product_id: item.product_id,
-            quantidade: quantidade,
+            quantity: quantidade,
             price: Number(preco.toFixed(2)),
             product_price: Number(preco.toFixed(2)),
             total_sales: Number(subtotal.toFixed(2)),
@@ -127,7 +127,7 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
         sale_type: "venda",
         status: "concluida",
         date: new Date().toISOString(),
-        observacoes: observacoes.trim() || undefined,
+        observation: observacoes.trim() || undefined,
       }
 
       const saleResponse = await createSale(vendaPayload)

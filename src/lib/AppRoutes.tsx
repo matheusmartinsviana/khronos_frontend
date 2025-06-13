@@ -9,12 +9,13 @@ import Dashboard from "@/pages/Dashboard"
 import Home2 from "@/pages/HomeN"
 import { AuthProvider, useAuth } from "@/context/AuthContext"
 import type { JSX } from "react"
-import { UserProvider } from "@/context/UserContext"
+import { UserProvider, useUser } from "@/context/UserContext"
 import ClientesPage from "@/pages/customer"
 import ProductsPage from "@/pages/product"
 import { PageTracker } from "@/utils/page-tracker"
 import UsersPage from "@/pages/user"
 import ServicosPage from "@/pages/service"
+import AdminDashboard from "@/pages/AdminSaleDashboard"
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
     const { isAuthenticated } = useAuth()
@@ -27,31 +28,38 @@ export default function AppRoutes() {
             <PageTracker />
             <AuthProvider>
                 <UserProvider>
-                    <Routes>
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/home" element={<Home2 />} />
-                        <Route
-                            element={
-                                <PrivateRoute>
-                                    <Layout />
-                                </PrivateRoute>
-                            }
-                        >
-                            <Route path="/" element={<Dashboard />} />
-                            <Route path="/vendas" element={<Sale />} />
-                            {/* Rotas de clientes */}
-                            <Route path="/clientes" element={<ClientesPage />} />
-                            <Route path="/clientes/novo" element={<ClientesPage />} />
-                            <Route path="/clientes/:id" element={<ClientesPage />} />
-                            <Route path="/produtos" element={<ProductsPage />} />
-                            <Route path="/produtos/novo" element={<ProductsPage />} />
-                            <Route path="/servicos" element={<ServicosPage />} />
-                            <Route path="/usuarios" element={<UsersPage />} />
-                            <Route path="/configuracoes" element={<Settings />} />
-                        </Route>
-                    </Routes>
+                    <AppRoutesInner />
                 </UserProvider>
             </AuthProvider>
         </BrowserRouter>
+    )
+}
+
+function AppRoutesInner() {
+    const { user } = useUser()
+    return (
+        <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/home" element={<Home2 />} />
+            <Route
+                element={
+                    <PrivateRoute>
+                        <Layout />
+                    </PrivateRoute>
+                }
+            >
+                <Route path="/" element={user?.role === "admin" ? <AdminDashboard /> : <Dashboard />} />
+                <Route path="/vendas" element={<Sale />} />
+                {/* Rotas de clientes */}
+                <Route path="/clientes" element={<ClientesPage />} />
+                <Route path="/clientes/novo" element={<ClientesPage />} />
+                <Route path="/clientes/:id" element={<ClientesPage />} />
+                <Route path="/produtos" element={<ProductsPage />} />
+                <Route path="/produtos/novo" element={<ProductsPage />} />
+                <Route path="/servicos" element={<ServicosPage />} />
+                <Route path="/usuarios" element={<UsersPage />} />
+                <Route path="/configuracoes" element={<Settings />} />
+            </Route>
+        </Routes>
     )
 }
