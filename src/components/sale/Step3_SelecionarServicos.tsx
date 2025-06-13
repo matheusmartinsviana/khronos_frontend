@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Check, Loader2, Wrench, Grid, List } from "lucide-react"
+import { Check, Loader2, Wrench, Grid, List } from 'lucide-react'
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { ServicoSelecionado } from "@/types"
@@ -26,6 +26,7 @@ interface Servico {
     segment: string | null
     createdAt: string
     updatedAt: string
+    service_id?: number // Adicionado para compatibilidade
 }
 
 interface Step3Props {
@@ -110,6 +111,7 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
     const [loading, setLoading] = useState(true)
     const [viewMode, setViewMode] = useState<"grid" | "table">("grid")
     const itensPorPagina = viewMode === "grid" ? 9 : 10
+    const [servicosProcessados, setServicosProcessados] = useState<Record<number, boolean>>({})
 
     // Fetch services only once on component mount
     useEffect(() => {
@@ -117,7 +119,19 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
             try {
                 setLoading(true)
                 const response = await getServices()
-                const servicosData = Array.isArray(response.data) ? response.data : []
+                console.log("Serviços recebidos:", response.data)
+
+                // Garantir que todos os serviços tenham IDs válidos
+                const servicosData = Array.isArray(response.data)
+                    ? response.data.map(servico => ({
+                        ...servico,
+                        // Garantir que product_id seja um número válido
+                        product_id: servico.product_id || servico.service_id || Math.floor(Math.random() * 100000),
+                        // Adicionar service_id se não existir
+                        service_id: servico.service_id || servico.product_id
+                    }))
+                    : []
+
                 setServicos(servicosData)
 
                 // Extrair segmentos únicos
@@ -180,39 +194,79 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
     const totalPaginas = Math.ceil(servicosFiltrados.length / itensPorPagina)
     const servicosPaginados = servicosFiltrados.slice((paginaAtual - 1) * itensPorPagina, paginaAtual * itensPorPagina)
 
+    // Verificar se um serviço já está selecionado
     const isServicoJaSelecionado = useCallback(
         (servicoId: number) => {
-            return Array.isArray(servicosSelecionados) && servicosSelecionados.some((s) => s.product_id === servicoId)
+            return (
+                Array.isArray(servicosSelecionados) &&
+                servicosSelecionados.some(
+                    (s) => s.product_id === servicoId || s.service_id === servicoId
+                )
+            )
         },
         [servicosSelecionados],
     )
 
+    // Manipular a seleção/desseleção de serviços
     const handleToggleServico = useCallback(
         (servico: Servico) => {
-            if (isServicoJaSelecionado(servico.product_id)) {
-                // Remover serviço (desselecionar)
-                const servicoSelecionado = servicosSelecionados.find((s) => s.product_id === servico.product_id)
-                if (servicoSelecionado) {
-                    // Usamos o mesmo objeto onAdicionarServico para remover, mas com uma flag especial
-                    onAdicionarServico({
-                        ...servicoSelecionado,
-                        _action: "remove",
-                    })
-                    onShowNotification("info", `${servico.name} removido da lista.`)
-                }
-            } else {
-                // Adicionar serviço (selecionar)
-                const servicoSelecionado: ServicoSelecionado = {
-                    ...servico,
-                    quantidade: 1,
-                    zoneamento: servico.zoning || "",
-                }
+            // Verificar se o serviço já está selecionado
+            const isSelected = isServicoJaSelecionado(servico.product_id)
 
-                onAdicionarServico(servicoSelecionado)
-                onShowNotification("success", `${servico.name} adicionado à lista!`)
+            // Evitar processamento duplicado
+            const processingKey = servico.product_id || servico.service_id
+            if (servicosProcessados[processingKey]) {
+                console.log("Serviço ainda está sendo processado:", processingKey)
+                return
+            }
+
+            // Marcar como em processamento
+            setServicosProcessados(prev => ({ ...prev, [processingKey]: true }))
+
+            try {
+                if (isSelected) {
+                    // Remover serviço (desselecionar)
+                    const servicoSelecionado = servicosSelecionados.find(
+                        (s) => s.product_id === servico.product_id || s.service_id === servico.product_id
+                    )
+
+                    if (servicoSelecionado) {
+                        console.log("Removendo serviço:", servico.name, servico.product_id)
+                        onAdicionarServico({
+                            ...servicoSelecionado,
+                            _action: "remove",
+                        })
+                        onShowNotification("info", `${servico.name} removido da lista.`)
+                    }
+                } else {
+                    // Adicionar serviço (selecionar)
+                    console.log("Adicionando serviço:", servico.name, servico.product_id)
+                    const servicoSelecionado: ServicoSelecionado = {
+                        ...servico,
+                        quantidade: 1,
+                        zoneamento: servico.zoning || "",
+                        service_id: servico.service_id || servico.product_id,
+                        isService: true, // Marcar explicitamente como serviço
+                    }
+
+                    onAdicionarServico(servicoSelecionado)
+                    onShowNotification("success", `${servico.name} adicionado à lista!`)
+                }
+            } catch (error) {
+                console.error("Erro ao processar serviço:", error)
+                onShowNotification("error", "Erro ao processar serviço.")
+            } finally {
+                // Remover a marcação de processamento após um breve delay
+                setTimeout(() => {
+                    setServicosProcessados(prev => {
+                        const newState = { ...prev }
+                        delete newState[processingKey]
+                        return newState
+                    })
+                }, 500)
             }
         },
-        [isServicoJaSelecionado, onAdicionarServico, onShowNotification, servicosSelecionados],
+        [isServicoJaSelecionado, onAdicionarServico, onShowNotification, servicosSelecionados, servicosProcessados],
     )
 
     const formatarPreco = (valor?: number) => {

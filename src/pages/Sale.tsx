@@ -133,18 +133,29 @@ export default function SalesPage() {
     }, [])
 
     const handleAdicionarServico = useCallback((servico: ServicoSelecionado) => {
+        console.log("handleAdicionarServico chamado com:", servico)
+
         // Verificar se é uma ação de remoção (toggle)
         if (servico._action === "remove") {
+            console.log("Removendo serviço:", servico.product_id || servico.service_id)
             setServicosSelecionados((prev) => {
                 const currentServices = Array.isArray(prev) ? prev : []
-                return currentServices.filter((s) => s.product_id !== servico.product_id)
+                return currentServices.filter((s) => s.product_id !== servico.product_id && s.service_id !== servico.product_id)
             })
             return
         }
 
+        // Garantir que o serviço tenha a flag isService
+        const servicoComFlag = {
+            ...servico,
+            isService: true,
+            service_id: servico.service_id || servico.product_id,
+        }
+
+        console.log("Adicionando serviço:", servicoComFlag)
         setServicosSelecionados((prev) => {
             const currentServices = Array.isArray(prev) ? prev : []
-            return [...currentServices, servico]
+            return [...currentServices, servicoComFlag]
         })
     }, [])
 
@@ -158,7 +169,7 @@ export default function SalesPage() {
     const handleRemoverServico = useCallback((servicoId: number) => {
         setServicosSelecionados((prev) => {
             const currentServices = Array.isArray(prev) ? prev : []
-            return currentServices.filter((s) => s.product_id !== servicoId)
+            return currentServices.filter((s) => s.product_id !== servicoId && s.service_id !== servicoId)
         })
     }, [])
 
@@ -172,7 +183,9 @@ export default function SalesPage() {
             } else {
                 setServicosSelecionados((prev) => {
                     const currentServices = Array.isArray(prev) ? prev : []
-                    return currentServices.map((s) => (s.product_id === produtoId ? { ...s, quantidade } : s))
+                    return currentServices.map((s) =>
+                        s.product_id === produtoId || s.service_id === produtoId ? { ...s, quantidade } : s,
+                    )
                 })
             }
         },
@@ -189,7 +202,9 @@ export default function SalesPage() {
             } else {
                 setServicosSelecionados((prev) => {
                     const currentServices = Array.isArray(prev) ? prev : []
-                    return currentServices.map((s) => (s.product_id === produtoId ? { ...s, zoneamento } : s))
+                    return currentServices.map((s) =>
+                        s.product_id === produtoId || s.service_id === produtoId ? { ...s, zoneamento } : s,
+                    )
                 })
             }
         },
@@ -210,9 +225,9 @@ export default function SalesPage() {
             case 0:
                 return clienteSelecionado !== null
             case 1:
-                return true
+                return Array.isArray(produtosSelecionados) && produtosSelecionados.length > 0
             case 2:
-                return Array.isArray(servicosSelecionados) && servicosSelecionados.length > 0 || produtosSelecionados.length > 0
+                return Array.isArray(servicosSelecionados) && servicosSelecionados.length > 0
             case 3:
                 return (
                     (Array.isArray(produtosSelecionados) && produtosSelecionados.length > 0) ||
@@ -340,6 +355,11 @@ export default function SalesPage() {
         }
     }, [vendaFinalizada, clienteSelecionado, produtosSelecionados, servicosSelecionados, user, showNotification])
 
+    // Efeito para debug
+    useEffect(() => {
+        console.log("Serviços selecionados atualizados:", servicosSelecionados)
+    }, [servicosSelecionados])
+
     // Se a venda foi finalizada, mostrar tela de sucesso
     if (vendaFinalizada) {
         return (
@@ -392,14 +412,6 @@ export default function SalesPage() {
                                 )}
                             </Button>
 
-                            {/* <Button
-                                onClick={handleVisualizarPDF}
-                                className="w-full bg-green-600 hover:bg-green-700 text-sm sm:text-base"
-                            >
-                                <ExternalLink className="w-4 h-4 mr-2" />
-                                Visualizar Relatório
-                            </Button> */}
-
                             <Button
                                 onClick={handleIniciarNovaVenda}
                                 className="w-full bg-red-600 hover:bg-red-700 text-sm sm:text-base"
@@ -430,7 +442,6 @@ export default function SalesPage() {
                 <div className="mx-auto pr-4 pt-4 pb-4">
                     <SalesDashboard onIniciarVenda={handleIniciarNovaVenda} onShowNotification={showNotification} />
                 </div>
-                {/* <AutoSaveIndicator lastSaved={draft?.lastSaved} isSaving={isSaving} /> */}
                 <Notification
                     notification={notification}
                     onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
@@ -614,7 +625,6 @@ export default function SalesPage() {
                 </div>
             </div>
 
-            {/* <AutoSaveIndicator lastSaved={draft?.lastSaved} isSaving={isSaving} /> */}
             <Notification notification={notification} onClose={() => setNotification((prev) => ({ ...prev, show: false }))} />
         </div>
     )
