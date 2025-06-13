@@ -70,12 +70,12 @@ export function SaleCard({
                 <div className="flex items-center gap-3 flex-1">
                     <Avatar className="h-10 w-10 border border-gray-200">
                         <AvatarFallback className="bg-gradient-to-br from-red-50 to-red-100 text-red-600 font-medium">
-                            {sale.Customer.name?.charAt(0) || "C"}
+                            {sale?.Customer?.name?.charAt(0) || "C"}
                         </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
-                            {sale.Customer.name || `Cliente #${sale.Customer.customer_id}`}
+                            {sale?.Customer?.name || `Cliente #${sale?.Customer?.customer_id}`}
                         </p>
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                             <span className="flex items-center gap-1">

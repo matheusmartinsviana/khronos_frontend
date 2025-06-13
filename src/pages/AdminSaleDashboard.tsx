@@ -28,6 +28,7 @@ import { Progress } from "@/components/ui/progress"
 import { SaleCard } from "@/components/sale/sale-card"
 import type { JSX } from "react"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useUser } from "@/context/UserContext"
 
 interface Sale {
     sale_id: string
@@ -120,6 +121,7 @@ export default function AdminDashboard() {
         topProduct: "N/A",
     })
 
+    const { user } = useUser()
     const tableRef = useRef<HTMLDivElement>(null)
     const isMobile = useIsMobile()
 
@@ -552,7 +554,7 @@ export default function AdminDashboard() {
                     ) : (
                         <>
                             <div>
-                                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{getGreeting()}, Administrador! 👋</h1>
+                                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{getGreeting()}, {user?.name || "Administrador"}! 👋</h1>
                                 <p className="text-gray-600 mt-1">Painel de controle administrativo</p>
                             </div>
                             <div className="flex gap-3">
@@ -1375,11 +1377,11 @@ export default function AdminDashboard() {
                                                                 <div className="flex items-center gap-2">
                                                                     <Avatar className="h-6 w-6">
                                                                         <AvatarFallback className="bg-red-100 text-red-600 text-xs">
-                                                                            {sale.Customer.name?.charAt(0) || "C"}
+                                                                            {sale?.Customer?.name?.charAt(0) || "C"}
                                                                         </AvatarFallback>
                                                                     </Avatar>
                                                                     <span className="truncate">
-                                                                        {sale.Customer.name || `Cliente #${sale.Customer.customer_id}`}
+                                                                        {sale?.Customer?.name || `Cliente #${sale?.Customer?.customer_id}`}
                                                                     </span>
                                                                 </div>
                                                             </TableCell>
