@@ -1424,7 +1424,7 @@ export default function AdminDashboard() {
 
                                     {/* Mobile Cards */}
                                     <div className="lg:hidden">
-                                        <ScrollArea className="max-h-[70vh]" ref={tableRef}>
+                                        <ScrollArea ref={tableRef}>
                                             {paginatedSales.map((sale) => (
                                                 <SaleCard
                                                     key={sale.sale_id}
