@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Check, Loader2, Wrench } from 'lucide-react'
+import { Check, Loader2, Wrench, Grid, List } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { ServicoSelecionado } from "@/types"
 
 // Tipos específicos para serviços
@@ -37,11 +39,11 @@ const ServicoCard = memo(
     ({
         servico,
         isSelected,
-        onSelect,
+        onToggleSelect,
     }: {
         servico: Servico
         isSelected: boolean
-        onSelect: () => void
+        onToggleSelect: () => void
     }) => {
         const formatarPreco = (valor?: number) => {
             if (typeof valor !== "number" || isNaN(valor)) {
@@ -54,7 +56,7 @@ const ServicoCard = memo(
             <Card
                 className={`transition-all duration-200 h-full cursor-pointer ${isSelected ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-red-300 hover:shadow-md"
                     }`}
-                onClick={!isSelected ? onSelect : undefined}
+                onClick={onToggleSelect}
             >
                 <CardContent className="p-4 flex flex-col h-full">
                     <div className="flex items-start justify-between mb-2">
@@ -106,7 +108,8 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
     const [filtroPreco, setFiltroPreco] = useState<string>("all")
     const [paginaAtual, setPaginaAtual] = useState(1)
     const [loading, setLoading] = useState(true)
-    const itensPorPagina = 9
+    const [viewMode, setViewMode] = useState<"grid" | "table">("grid")
+    const itensPorPagina = viewMode === "grid" ? 9 : 10
 
     // Fetch services only once on component mount
     useEffect(() => {
@@ -137,10 +140,10 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
         fetchData()
     }, [onShowNotification])
 
-    // Reset to first page when filters change
+    // Reset to first page when filters change or view mode changes
     useEffect(() => {
         setPaginaAtual(1)
-    }, [filtroNome, filtroSegmento, filtroPreco])
+    }, [filtroNome, filtroSegmento, filtroPreco, viewMode])
 
     // Memoize filtered services to prevent recalculation on every render
     const servicosFiltrados = useMemo(() => {
@@ -184,24 +187,40 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
         [servicosSelecionados],
     )
 
-    const handleSelecionarServico = useCallback(
+    const handleToggleServico = useCallback(
         (servico: Servico) => {
             if (isServicoJaSelecionado(servico.product_id)) {
-                onShowNotification("error", "Este serviço já foi selecionado!")
-                return
-            }
+                // Remover serviço (desselecionar)
+                const servicoSelecionado = servicosSelecionados.find((s) => s.product_id === servico.product_id)
+                if (servicoSelecionado) {
+                    // Usamos o mesmo objeto onAdicionarServico para remover, mas com uma flag especial
+                    onAdicionarServico({
+                        ...servicoSelecionado,
+                        _action: "remove",
+                    })
+                    onShowNotification("info", `${servico.name} removido da lista.`)
+                }
+            } else {
+                // Adicionar serviço (selecionar)
+                const servicoSelecionado: ServicoSelecionado = {
+                    ...servico,
+                    quantidade: 1,
+                    zoneamento: servico.zoning || "",
+                }
 
-            const servicoSelecionado: ServicoSelecionado = {
-                ...servico,
-                quantidade: 1,
-                zoneamento: servico.zoning || "",
+                onAdicionarServico(servicoSelecionado)
+                onShowNotification("success", `${servico.name} adicionado à lista!`)
             }
-
-            onAdicionarServico(servicoSelecionado)
-            onShowNotification("success", `${servico.name} adicionado à lista!`)
         },
-        [isServicoJaSelecionado, onAdicionarServico, onShowNotification],
+        [isServicoJaSelecionado, onAdicionarServico, onShowNotification, servicosSelecionados],
     )
+
+    const formatarPreco = (valor?: number) => {
+        if (typeof valor !== "number" || isNaN(valor)) {
+            return "R$ 0,00"
+        }
+        return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    }
 
     if (loading) {
         return (
@@ -220,10 +239,32 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
 
     return (
         <div className="p-6 w-full">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                <Wrench className="w-6 h-6 text-red-600 mr-2" />
-                Selecionar Serviços
-            </h2>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-800 flex items-center">
+                    <Wrench className="w-6 h-6 text-red-600 mr-2" />
+                    Selecionar Serviços
+                </h2>
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant={viewMode === "grid" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("grid")}
+                        className={viewMode === "grid" ? "bg-red-700 hover:bg-red-800" : ""}
+                    >
+                        <Grid className="h-4 w-4 mr-1" />
+                        Grid
+                    </Button>
+                    <Button
+                        variant={viewMode === "table" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("table")}
+                        className={viewMode === "table" ? "bg-red-700 hover:bg-red-800" : ""}
+                    >
+                        <List className="h-4 w-4 mr-1" />
+                        Tabela
+                    </Button>
+                </div>
+            </div>
 
             <div className="flex flex-col lg:flex-row gap-4 mb-6">
                 <div className="flex-1">
@@ -277,16 +318,67 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
                 </div>
             ) : (
                 <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
-                        {servicosPaginados.map((servico) => (
-                            <ServicoCard
-                                key={servico.product_id}
-                                servico={servico}
-                                isSelected={isServicoJaSelecionado(servico.product_id)}
-                                onSelect={() => handleSelecionarServico(servico)}
-                            />
-                        ))}
-                    </div>
+                    {viewMode === "grid" ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+                            {servicosPaginados.map((servico) => (
+                                <ServicoCard
+                                    key={servico.product_id}
+                                    servico={servico}
+                                    isSelected={isServicoJaSelecionado(servico.product_id)}
+                                    onToggleSelect={() => handleToggleServico(servico)}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="border rounded-md overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-12"></TableHead>
+                                        <TableHead>Nome</TableHead>
+                                        <TableHead className="hidden md:table-cell">Código</TableHead>
+                                        <TableHead className="hidden md:table-cell">Segmento</TableHead>
+                                        <TableHead className="text-right">Preço</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {servicosPaginados.map((servico) => {
+                                        const isSelected = isServicoJaSelecionado(servico.product_id)
+                                        return (
+                                            <TableRow key={servico.product_id} className={isSelected ? "bg-green-50" : ""}>
+                                                <TableCell>
+                                                    <Checkbox
+                                                        checked={isSelected}
+                                                        onCheckedChange={() => handleToggleServico(servico)}
+                                                        className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="font-medium">
+                                                    <div className="flex items-center">
+                                                        <span>{servico.name || "Nome não disponível"}</span>
+                                                        {servico.observation && <span className="ml-2 text-xs text-orange-600">⚠️</span>}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="hidden md:table-cell">{servico.code || "-"}</TableCell>
+                                                <TableCell className="hidden md:table-cell">
+                                                    {servico.segment ? (
+                                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                                            {servico.segment}
+                                                        </span>
+                                                    ) : (
+                                                        "-"
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right font-bold text-red-700">
+                                                    {formatarPreco(servico.price)}
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
 
                     {totalPaginas > 1 && (
                         <div className="flex justify-center items-center mt-6 gap-2">

@@ -1,3 +1,5 @@
+"use client"
+
 import type React from "react"
 import { useState, useEffect } from "react"
 import {
@@ -12,11 +14,12 @@ import {
     Sun,
     TrendingUp,
     User,
+    Wrench,
 } from "lucide-react"
 import { getSalesByUser } from "@/api/sale"
 import { useUser } from "@/context/UserContext"
 import { convertVendaForPDF, downloadPDF } from "@/lib/generate-pdf"
-import type { Venda } from "@/types"
+import type { Venda, ProdutoSelecionado } from "@/types"
 
 interface SalesDashboardProps {
     onIniciarVenda: () => void
@@ -48,30 +51,41 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                 const vendasData = Array.isArray(response.data) ? response.data : []
 
                 // Mapear os dados do backend para o formato esperado pelo frontend
-                const vendasMapeadas: Venda[] = vendasData.map((venda: any) => ({
-                    sale_id: venda.sale_id,
-                    seller_id: venda.Salesperson?.seller_id,
-                    customer_id: venda.Customer?.customer_id,
-                    customer_name: venda.Customer?.name,
-                    customer_email: venda.Customer?.email,
-                    products:
-                        venda.ProductSales?.map((ps: any) => ({
+                const vendasMapeadas: Venda[] = vendasData.map((venda: any) => {
+                    // Mapear produtos e serviços corretamente
+                    const produtosEServicos = Array.isArray(venda.ProductSales)
+                        ? venda.ProductSales.map((ps: any) => ({
                             product_sale_id: ps.product_sale_id,
-                            product_id: ps.Product?.product_id,
-                            name: ps.Product?.name,
-                            price: ps.product_price,
-                            total_sales: ps.total_sales,
-                            total: ps.product_price * ps.total_sales,
-                        })) || [],
-                    payment_method: venda.payment_method || "não informado",
-                    total: venda.amount || 0,
-                    amount: venda.amount || 0,
-                    sale_type: venda.sale_type || "venda",
-                    status: venda.status || "concluida",
-                    date: venda.date,
-                    observacoes: venda.observacoes || "",
-                    seller_email: venda.Salesperson?.User?.email,
-                }))
+                            product_id: ps.Product?.product_id || ps.product_id,
+                            service_id: ps.Service?.service_id || ps.service_id,
+                            name: ps.Product?.name || ps.Service?.name || "Produto/Serviço",
+                            price: ps.product_price || 0,
+                            quantity: ps.quantity || ps.total_sales || 1,
+                            quantidade: ps.quantity || ps.total_sales || 1,
+                            total_sales: ps.total_sales || ps.quantity || 1,
+                            total: (ps.product_price || 0) * (ps.total_sales || ps.quantity || 1),
+                            product_type: ps.Product?.product_type || ps.Service?.product_type || "",
+                            isService: !!ps.Service?.service_id,
+                        }))
+                        : []
+
+                    return {
+                        sale_id: venda.sale_id,
+                        seller_id: venda.Salesperson?.seller_id || venda.seller_id,
+                        customer_id: venda.Customer?.customer_id || venda.customer_id,
+                        customer_name: venda.Customer?.name || "Cliente",
+                        customer_email: venda.Customer?.email || "",
+                        products: produtosEServicos,
+                        payment_method: venda.payment_method || "não informado",
+                        total: venda.amount || 0,
+                        amount: venda.amount || 0,
+                        sale_type: venda.sale_type || "venda",
+                        status: venda.status || "concluida",
+                        date: venda.date || new Date().toISOString(),
+                        observacoes: venda.observation || venda.observacoes || "",
+                        seller_email: venda.Salesperson?.User?.email || user.email,
+                    }
+                })
 
                 const vendasOrdenadas = vendasMapeadas.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
@@ -97,7 +111,7 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
         }
 
         fetchVendas()
-    }, [user?.user_id, onShowNotification])
+    }, [user?.user_id, onShowNotification, user?.email])
 
     const formatarPreco = (valor?: number | null): string => {
         if (typeof valor !== "number" || isNaN(valor) || valor === null || valor === undefined) {
@@ -175,14 +189,21 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
         setGerandoRelatorio(venda.sale_id)
 
         try {
-            const vendas = await getSalesByUser(user.user_id)
-
-            if (!vendas || !Array.isArray(vendas.data)) {
-                onShowNotification("error", "Erro ao carregar vendas para o relatório")
-                return
+            // Preparar os dados para o PDF
+            const cliente = {
+                customer_id: venda.customer_id,
+                name: venda.customer_name || "Cliente",
+                email: venda.customer_email || "",
             }
 
-            const vendaParaPDF = convertVendaForPDF(venda, venda.customer_id, venda.products, user)
+            // Garantir que os produtos tenham o formato correto
+            const produtosFormatados = venda.products.map((produto) => ({
+                ...produto,
+                quantidade: produto.quantidade || produto.total_sales || 1,
+                zoneamento: produto.zoneamento || "",
+            }))
+
+            const vendaParaPDF = convertVendaForPDF(venda, cliente, produtosFormatados, user)
             downloadPDF(vendaParaPDF)
             onShowNotification("success", "Relatório gerado e baixado com sucesso!")
         } catch (error) {
@@ -191,6 +212,14 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
         } finally {
             setGerandoRelatorio(null)
         }
+    }
+
+    // Função para contar produtos e serviços separadamente
+    const contarProdutosEServicos = (produtos: ProdutoSelecionado[]) => {
+        const produtosCount = produtos.filter((p) => !p.isService).length
+        const servicosCount = produtos.filter((p) => p.isService).length
+
+        return { produtosCount, servicosCount }
     }
 
     return (
@@ -316,198 +345,244 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                        {vendas.map((venda) => (
-                                            <tr key={venda.sale_id} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex-shrink-0">
-                                                            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                                                                <User className="w-5 h-5 text-red-600" />
+                                        {vendas.map((venda) => {
+                                            const { produtosCount, servicosCount } = contarProdutosEServicos(venda.products || [])
+                                            return (
+                                                <tr key={venda.sale_id} className="hover:bg-gray-50">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex-shrink-0">
+                                                                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                                                                    <User className="w-5 h-5 text-red-600" />
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-sm font-medium text-gray-900">
+                                                                    {venda.customer_name || `Cliente #${venda.customer_id}`}
+                                                                </div>
+                                                                <div className="text-sm text-gray-500 flex items-center gap-1">
+                                                                    <Calendar className="w-3 h-3" />
+                                                                    {formatarData(venda.date)}
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <div>
-                                                            <div className="text-sm font-medium text-gray-900">
-                                                                {venda.customer_name || `Cliente #${venda.customer_id}`}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="text-sm text-gray-900 flex items-center gap-2">
+                                                                {produtosCount > 0 && (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Package className="w-3 h-3 text-blue-600" />
+                                                                        {produtosCount} produto{produtosCount !== 1 ? "s" : ""}
+                                                                    </span>
+                                                                )}
+                                                                {servicosCount > 0 && (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Wrench className="w-3 h-3 text-green-600" />
+                                                                        {servicosCount} serviço{servicosCount !== 1 ? "s" : ""}
+                                                                    </span>
+                                                                )}
                                                             </div>
-                                                            <div className="text-sm text-gray-500 flex items-center gap-1">
-                                                                <Calendar className="w-3 h-3" />
-                                                                {formatarData(venda.date)}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="text-sm text-gray-900">
-                                                        {venda.products?.length || 0} item{(venda.products?.length || 0) !== 1 ? "s" : ""}
-                                                    </div>
-                                                    <div className="text-sm text-gray-500 truncate max-w-[200px]">
-                                                        {venda.products && venda.products.length > 0 ? venda.products[0].name : "Sem produtos"}
-                                                        {venda.products && venda.products.length > 1 && "..."}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="text-sm font-medium text-gray-900">{formatarPreco(venda.total)}</div>
-                                                    <div className="text-sm text-gray-500 flex items-center gap-1">
-                                                        <CreditCard className="w-3 h-3" />
-                                                        {getPaymentMethodLabel(venda.payment_method)}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span
-                                                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(venda.status)}`}
-                                                    >
-                                                        {venda.status || "Concluída"}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => setVendaExpandida(vendaExpandida === venda.sale_id ? null : venda.sale_id)}
-                                                            className="text-gray-400 hover:text-gray-600 transition-colors"
-                                                            title="Ver detalhes"
-                                                        >
-                                                            <Eye className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleGerarRelatorio(venda)}
-                                                            disabled={gerandoRelatorio === venda.sale_id}
-                                                            className="text-blue-600 hover:text-blue-800 transition-colors disabled:opacity-50"
-                                                            title="Gerar relatório"
-                                                        >
-                                                            {gerandoRelatorio === venda.sale_id ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                            ) : (
-                                                                <FileText className="w-4 h-4" />
+                                                            {venda.products && venda.products.length > 0 && (
+                                                                <div className="text-sm text-gray-500 truncate max-w-[200px]">
+                                                                    {venda.products[0].name}
+                                                                    {venda.products.length > 1 && "..."}
+                                                                </div>
                                                             )}
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-sm font-medium text-gray-900">{formatarPreco(venda.total)}</div>
+                                                        <div className="text-sm text-gray-500 flex items-center gap-1">
+                                                            <CreditCard className="w-3 h-3" />
+                                                            {getPaymentMethodLabel(venda.payment_method)}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span
+                                                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                                                                venda.status,
+                                                            )}`}
+                                                        >
+                                                            {venda.status || "Concluída"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() =>
+                                                                    setVendaExpandida(vendaExpandida === venda.sale_id ? null : venda.sale_id)
+                                                                }
+                                                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                                                                title="Ver detalhes"
+                                                            >
+                                                                <Eye className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleGerarRelatorio(venda)}
+                                                                disabled={gerandoRelatorio === venda.sale_id}
+                                                                className="text-blue-600 hover:text-blue-800 transition-colors disabled:opacity-50"
+                                                                title="Gerar relatório"
+                                                            >
+                                                                {gerandoRelatorio === venda.sale_id ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    <FileText className="w-4 h-4" />
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
 
                             {/* Mobile Cards */}
                             <div className="lg:hidden divide-y divide-gray-200">
-                                {vendas.map((venda) => (
-                                    <div key={venda.sale_id} className="p-4">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div className="flex items-center gap-3 flex-1">
-                                                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                                    <User className="w-5 h-5 text-red-600" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-gray-900 truncate">
-                                                        {venda.customer_name || `Cliente #${venda.customer_id}`}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500 flex items-center gap-1">
-                                                        <Calendar className="w-3 h-3" />
-                                                        {formatarDataMobile(venda.date)}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right flex-shrink-0">
-                                                <p className="text-sm font-bold text-gray-900">{formatarPreco(venda.total)}</p>
-                                                <span
-                                                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(venda.status)}`}
-                                                >
-                                                    {venda.status || "Concluída"}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex justify-between items-center mb-3">
-                                            <div className="flex items-center gap-4 text-xs text-gray-500">
-                                                <span className="flex items-center gap-1">
-                                                    <Package className="w-3 h-3" />
-                                                    {venda.products?.length || 0} item{(venda.products?.length || 0) !== 1 ? "s" : ""}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <CreditCard className="w-3 h-3" />
-                                                    {getPaymentMethodShort(venda.payment_method)}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex justify-between items-center">
-                                            <button
-                                                onClick={() => setVendaExpandida(vendaExpandida === venda.sale_id ? null : venda.sale_id)}
-                                                className="text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1"
-                                            >
-                                                <Eye className="w-3 h-3" />
-                                                {vendaExpandida === venda.sale_id ? "Ocultar" : "Ver detalhes"}
-                                            </button>
-                                            <button
-                                                onClick={() => handleGerarRelatorio(venda)}
-                                                disabled={gerandoRelatorio === venda.sale_id}
-                                                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 disabled:opacity-50"
-                                            >
-                                                {gerandoRelatorio === venda.sale_id ? (
-                                                    <>
-                                                        <Loader2 className="w-3 h-3 animate-spin" />
-                                                        Gerando...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <FileText className="w-3 h-3" />
-                                                        Relatório
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
-
-                                        {/* Detalhes expandidos */}
-                                        {vendaExpandida === venda.sale_id && (
-                                            <div className="mt-3 pt-3 border-t border-gray-200">
-                                                <div className="space-y-2">
-                                                    <div className="text-xs">
-                                                        <span className="font-medium text-gray-700">ID da Venda:</span>
-                                                        <span className="text-gray-600 ml-1">{venda.sale_id}</span>
+                                {vendas.map((venda) => {
+                                    const { produtosCount, servicosCount } = contarProdutosEServicos(venda.products || [])
+                                    return (
+                                        <div key={venda.sale_id} className="p-4">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                        <User className="w-5 h-5 text-red-600" />
                                                     </div>
-                                                    <div className="text-xs">
-                                                        <span className="font-medium text-gray-700">Cliente:</span>
-                                                        <span className="text-gray-600 ml-1">
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">
                                                             {venda.customer_name || `Cliente #${venda.customer_id}`}
-                                                            {venda.customer_email && ` (${venda.customer_email})`}
-                                                        </span>
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                                                            <Calendar className="w-3 h-3" />
+                                                            {formatarDataMobile(venda.date)}
+                                                        </p>
                                                     </div>
-                                                    <div className="text-xs">
-                                                        <span className="font-medium text-gray-700">Vendedor:</span>
-                                                        <span className="text-gray-600 ml-1">{venda.seller_email || `ID: ${venda.seller_id}`}</span>
-                                                    </div>
-                                                    <div className="text-xs">
-                                                        <span className="font-medium text-gray-700">Tipo:</span>
-                                                        <span className="text-gray-600 ml-1 capitalize">{venda.sale_type || "venda"}</span>
-                                                    </div>
-                                                    <div className="text-xs">
-                                                        <span className="font-medium text-gray-700">Data completa:</span>
-                                                        <span className="text-gray-600 ml-1">{formatarData(venda.date)}</span>
-                                                    </div>
-                                                    {venda.products && venda.products.length > 0 && (
-                                                        <div className="text-xs">
-                                                            <span className="font-medium text-gray-700">Produtos:</span>
-                                                            <div className="ml-1 mt-1 space-y-1">
-                                                                {venda.products.slice(0, 3).map((product, index) => (
-                                                                    <div key={index} className="text-gray-600 flex justify-between">
-                                                                        <div className="flex-1 truncate mr-2">
-                                                                            <span>{product.name || `Produto ${product.product_id}`}</span>
-                                                                            <span className="text-gray-400 ml-1">x{product.total_sales || 1}</span>
-                                                                        </div>
-                                                                        <span>{formatarPreco(product.price || 0)}</span>
-                                                                    </div>
-                                                                ))}
-                                                                {venda.products.length > 3 && (
-                                                                    <div className="text-gray-500 italic">+{venda.products.length - 3} mais...</div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    )}
+                                                </div>
+                                                <div className="text-right flex-shrink-0">
+                                                    <p className="text-sm font-bold text-gray-900">{formatarPreco(venda.total)}</p>
+                                                    <span
+                                                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                                                            venda.status,
+                                                        )}`}
+                                                    >
+                                                        {venda.status || "Concluída"}
+                                                    </span>
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
+
+                                            <div className="flex justify-between items-center mb-3">
+                                                <div className="flex items-center gap-4 text-xs text-gray-500">
+                                                    {produtosCount > 0 && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Package className="w-3 h-3 text-blue-600" />
+                                                            {produtosCount}
+                                                        </span>
+                                                    )}
+                                                    {servicosCount > 0 && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Wrench className="w-3 h-3 text-green-600" />
+                                                            {servicosCount}
+                                                        </span>
+                                                    )}
+                                                    <span className="flex items-center gap-1">
+                                                        <CreditCard className="w-3 h-3" />
+                                                        {getPaymentMethodShort(venda.payment_method)}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-between items-center">
+                                                <button
+                                                    onClick={() => setVendaExpandida(vendaExpandida === venda.sale_id ? null : venda.sale_id)}
+                                                    className="text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1"
+                                                >
+                                                    <Eye className="w-3 h-3" />
+                                                    {vendaExpandida === venda.sale_id ? "Ocultar" : "Ver detalhes"}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleGerarRelatorio(venda)}
+                                                    disabled={gerandoRelatorio === venda.sale_id}
+                                                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 disabled:opacity-50"
+                                                >
+                                                    {gerandoRelatorio === venda.sale_id ? (
+                                                        <>
+                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                            Gerando...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <FileText className="w-3 h-3" />
+                                                            Relatório
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+
+                                            {/* Detalhes expandidos */}
+                                            {vendaExpandida === venda.sale_id && (
+                                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                                    <div className="space-y-2">
+                                                        <div className="text-xs">
+                                                            <span className="font-medium text-gray-700">ID da Venda:</span>
+                                                            <span className="text-gray-600 ml-1">{venda.sale_id}</span>
+                                                        </div>
+                                                        <div className="text-xs">
+                                                            <span className="font-medium text-gray-700">Cliente:</span>
+                                                            <span className="text-gray-600 ml-1">
+                                                                {venda.customer_name || `Cliente #${venda.customer_id}`}
+                                                                {venda.customer_email && ` (${venda.customer_email})`}
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-xs">
+                                                            <span className="font-medium text-gray-700">Vendedor:</span>
+                                                            <span className="text-gray-600 ml-1">
+                                                                {venda.seller_email || `ID: ${venda.seller_id}`}
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-xs">
+                                                            <span className="font-medium text-gray-700">Tipo:</span>
+                                                            <span className="text-gray-600 ml-1 capitalize">{venda.sale_type || "venda"}</span>
+                                                        </div>
+                                                        <div className="text-xs">
+                                                            <span className="font-medium text-gray-700">Data completa:</span>
+                                                            <span className="text-gray-600 ml-1">{formatarData(venda.date)}</span>
+                                                        </div>
+                                                        {venda.products && venda.products.length > 0 && (
+                                                            <div className="text-xs">
+                                                                <span className="font-medium text-gray-700">Itens:</span>
+                                                                <div className="ml-1 mt-1 space-y-1">
+                                                                    {venda.products.slice(0, 3).map((product, index) => (
+                                                                        <div key={index} className="text-gray-600 flex justify-between">
+                                                                            <div className="flex-1 truncate mr-2">
+                                                                                <span className="flex items-center gap-1">
+                                                                                    {product.isService ? (
+                                                                                        <Wrench className="w-2 h-2 text-green-600" />
+                                                                                    ) : (
+                                                                                        <Package className="w-2 h-2 text-blue-600" />
+                                                                                    )}
+                                                                                    {product.name || `Item ${product.product_id || product.service_id}`}
+                                                                                    <span className="text-gray-400 ml-1">
+                                                                                        x{product.quantity || product.total_sales || 1}
+                                                                                    </span>
+                                                                                </span>
+                                                                            </div>
+                                                                            <span>{formatarPreco(product.price || 0)}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                    {venda.products.length > 3 && (
+                                                                        <div className="text-gray-500 italic">+{venda.products.length - 3} mais...</div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
                             </div>
                         </>
                     )}

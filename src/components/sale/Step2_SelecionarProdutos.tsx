@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Check, Loader2 } from 'lucide-react'
+import { Check, Loader2, Grid, List } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface Step2Props {
     produtosSelecionados: ProdutoSelecionado[]
@@ -23,11 +25,11 @@ const ProdutoCard = memo(
     ({
         produto,
         isSelected,
-        onSelect,
+        onToggleSelect,
     }: {
         produto: Produto
         isSelected: boolean
-        onSelect: () => void
+        onToggleSelect: () => void
     }) => {
         const formatarPreco = (valor?: number) => {
             if (typeof valor !== "number" || isNaN(valor)) {
@@ -40,7 +42,7 @@ const ProdutoCard = memo(
             <Card
                 className={`transition-all duration-200 h-full cursor-pointer ${isSelected ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-red-300 hover:shadow-md"
                     }`}
-                onClick={!isSelected ? onSelect : undefined}
+                onClick={onToggleSelect}
             >
                 <CardContent className="p-4 flex flex-col h-full">
                     <h4 className="font-medium text-gray-800 mb-2 line-clamp-2">{produto.name || "Nome não disponível"}</h4>
@@ -82,7 +84,8 @@ const Step2_SelecionarProdutos: React.FC<Step2Props> = ({
     const [filtroNome, setFiltroNome] = useState("")
     const [paginaAtual, setPaginaAtual] = useState(1)
     const [loading, setLoading] = useState(true)
-    const itensPorPagina = 9
+    const [viewMode, setViewMode] = useState<"grid" | "table">("grid")
+    const itensPorPagina = viewMode === "grid" ? 9 : 10
 
     // Fetch products and categories only once on component mount
     useEffect(() => {
@@ -105,10 +108,10 @@ const Step2_SelecionarProdutos: React.FC<Step2Props> = ({
         fetchData()
     }, [onShowNotification])
 
-    // Reset to first page when filters change
+    // Reset to first page when filters change or view mode changes
     useEffect(() => {
         setPaginaAtual(1)
-    }, [filtroNome, filtroCategoria])
+    }, [filtroNome, filtroCategoria, viewMode])
 
     // Memoize filtered products to prevent recalculation on every render
     const produtosFiltrados = useMemo(() => {
@@ -133,24 +136,40 @@ const Step2_SelecionarProdutos: React.FC<Step2Props> = ({
         [produtosSelecionados],
     )
 
-    const handleSelecionarProduto = useCallback(
+    const handleToggleProduto = useCallback(
         (produto: Produto) => {
             if (isProdutoJaSelecionado(produto.product_id)) {
-                onShowNotification("error", "Este produto já foi selecionado!")
-                return
-            }
+                // Remover produto (desselecionar)
+                const produtoSelecionado = produtosSelecionados.find((p) => p.product_id === produto.product_id)
+                if (produtoSelecionado) {
+                    // Usamos o mesmo objeto onAdicionarProduto para remover, mas com uma flag especial
+                    onAdicionarProduto({
+                        ...produtoSelecionado,
+                        _action: "remove",
+                    })
+                    onShowNotification("info", `${produto.name} removido da lista.`)
+                }
+            } else {
+                // Adicionar produto (selecionar)
+                const produtoSelecionado: ProdutoSelecionado = {
+                    ...produto,
+                    quantidade: 1,
+                    zoneamento: produto.zoning || "",
+                }
 
-            const produtoSelecionado: ProdutoSelecionado = {
-                ...produto,
-                quantidade: 1,
-                zoneamento: produto.zoning || "",
+                onAdicionarProduto(produtoSelecionado)
+                onShowNotification("success", `${produto.name} adicionado à lista!`)
             }
-
-            onAdicionarProduto(produtoSelecionado)
-            onShowNotification("success", `${produto.name} adicionado à lista!`)
         },
-        [isProdutoJaSelecionado, onAdicionarProduto, onShowNotification],
+        [isProdutoJaSelecionado, onAdicionarProduto, onShowNotification, produtosSelecionados],
     )
+
+    const formatarPreco = (valor?: number) => {
+        if (typeof valor !== "number" || isNaN(valor)) {
+            return "R$ 0,00"
+        }
+        return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    }
 
     if (loading) {
         return (
@@ -166,7 +185,29 @@ const Step2_SelecionarProdutos: React.FC<Step2Props> = ({
 
     return (
         <div className="p-6 w-full">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Selecionar Produtos</h2>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">Selecionar Produtos</h2>
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant={viewMode === "grid" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("grid")}
+                        className={viewMode === "grid" ? "bg-red-700 hover:bg-red-800" : ""}
+                    >
+                        <Grid className="h-4 w-4 mr-1" />
+                        Grid
+                    </Button>
+                    <Button
+                        variant={viewMode === "table" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("table")}
+                        className={viewMode === "table" ? "bg-red-700 hover:bg-red-800" : ""}
+                    >
+                        <List className="h-4 w-4 mr-1" />
+                        Tabela
+                    </Button>
+                </div>
+            </div>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
                 <div className="flex-1">
@@ -206,16 +247,56 @@ const Step2_SelecionarProdutos: React.FC<Step2Props> = ({
                 </div>
             ) : (
                 <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
-                        {produtosPaginados.map((produto) => (
-                            <ProdutoCard
-                                key={produto.product_id}
-                                produto={produto}
-                                isSelected={isProdutoJaSelecionado(produto.product_id)}
-                                onSelect={() => handleSelecionarProduto(produto)}
-                            />
-                        ))}
-                    </div>
+                    {viewMode === "grid" ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+                            {produtosPaginados.map((produto) => (
+                                <ProdutoCard
+                                    key={produto.product_id}
+                                    produto={produto}
+                                    isSelected={isProdutoJaSelecionado(produto.product_id)}
+                                    onToggleSelect={() => handleToggleProduto(produto)}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="border rounded-md overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-12"></TableHead>
+                                        <TableHead>Nome</TableHead>
+                                        <TableHead>Tipo</TableHead>
+                                        <TableHead className="hidden md:table-cell">Descrição</TableHead>
+                                        <TableHead className="text-right">Preço</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {produtosPaginados.map((produto) => {
+                                        const isSelected = isProdutoJaSelecionado(produto.product_id)
+                                        return (
+                                            <TableRow key={produto.product_id} className={isSelected ? "bg-green-50" : ""}>
+                                                <TableCell>
+                                                    <Checkbox
+                                                        checked={isSelected}
+                                                        onCheckedChange={() => handleToggleProduto(produto)}
+                                                        className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="font-medium">{produto.name || "Nome não disponível"}</TableCell>
+                                                <TableCell>{produto.product_type || "Tipo não informado"}</TableCell>
+                                                <TableCell className="hidden md:table-cell">
+                                                    <span className="line-clamp-1">{produto.description || "-"}</span>
+                                                </TableCell>
+                                                <TableCell className="text-right font-bold text-red-700">
+                                                    {formatarPreco(produto.price)}
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
 
                     {totalPaginas > 1 && (
                         <div className="flex justify-center items-center mt-6 gap-2">

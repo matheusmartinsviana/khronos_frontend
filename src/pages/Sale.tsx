@@ -3,13 +3,12 @@
 import { useState, useCallback, useTransition, useEffect } from "react"
 import type { Cliente, ProdutoSelecionado, ServicoSelecionado, Venda, NotificationState } from "@/types"
 import { downloadPDF, openPDFInNewTab, convertVendaForPDF } from "@/lib/generate-pdf"
-import { FileText, Home, Plus, ExternalLink, ArrowLeft, Menu } from "lucide-react"
+import { FileText, Home, Plus, ArrowLeft, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useSalesDraft } from "@/hooks/use-sales-draft"
 import { useUser } from "@/context/UserContext"
 import Notification from "@/components/sale/Notification"
-import AutoSaveIndicator from "./sale/auto-save-indicator"
 import SalesDashboard from "@/components/sale/SalesDashboard"
 import Stepper from "@/components/sale/Stepper"
 import Step1_SelecionarCliente from "@/components/sale/Step1_SelecionarCliente"
@@ -118,6 +117,15 @@ export default function SalesPage() {
     }, [])
 
     const handleAdicionarProduto = useCallback((produto: ProdutoSelecionado) => {
+        // Verificar se é uma ação de remoção (toggle)
+        if (produto._action === "remove") {
+            setProdutosSelecionados((prev) => {
+                const currentProducts = Array.isArray(prev) ? prev : []
+                return currentProducts.filter((p) => p.product_id !== produto.product_id)
+            })
+            return
+        }
+
         setProdutosSelecionados((prev) => {
             const currentProducts = Array.isArray(prev) ? prev : []
             return [...currentProducts, produto]
@@ -125,6 +133,15 @@ export default function SalesPage() {
     }, [])
 
     const handleAdicionarServico = useCallback((servico: ServicoSelecionado) => {
+        // Verificar se é uma ação de remoção (toggle)
+        if (servico._action === "remove") {
+            setServicosSelecionados((prev) => {
+                const currentServices = Array.isArray(prev) ? prev : []
+                return currentServices.filter((s) => s.product_id !== servico.product_id)
+            })
+            return
+        }
+
         setServicosSelecionados((prev) => {
             const currentServices = Array.isArray(prev) ? prev : []
             return [...currentServices, servico]
@@ -193,9 +210,9 @@ export default function SalesPage() {
             case 0:
                 return clienteSelecionado !== null
             case 1:
-                return Array.isArray(produtosSelecionados) && produtosSelecionados.length > 0
+                return true
             case 2:
-                return Array.isArray(servicosSelecionados) && servicosSelecionados.length > 0
+                return Array.isArray(servicosSelecionados) && servicosSelecionados.length > 0 || produtosSelecionados.length > 0
             case 3:
                 return (
                     (Array.isArray(produtosSelecionados) && produtosSelecionados.length > 0) ||

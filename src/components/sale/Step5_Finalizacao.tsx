@@ -1,12 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { Cliente, ProdutoSelecionado, ServicoSelecionado, Venda } from "@/types"
 import { createSale } from "@/api/sale"
 import { verifyUserSalesperson } from "@/api/user"
 import { Button } from "@/components/ui/button"
-import { Printer, FileText, Check, AlertCircle, Loader2, ExternalLink, Package, Wrench } from 'lucide-react'
+import { FileText, Check, AlertCircle, Loader2, ExternalLink, Package, Wrench } from "lucide-react"
 import { downloadPDF, openPDFInNewTab, convertVendaForPDF } from "@/lib/generate-pdf"
 import { useUser } from "@/context/UserContext"
 import { api } from "@/api"
@@ -26,7 +26,13 @@ const formatarPreco = (valor?: number) => {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
-const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, onFinalizarVenda, onShowNotification }) => {
+const Step5_Finalizacao: React.FC<Step5Props> = ({
+  cliente,
+  produtos,
+  servicos,
+  onFinalizarVenda,
+  onShowNotification,
+}) => {
   const { user } = useUser()
   const [metodoPagamento, setMetodoPagamento] = useState<"dinheiro" | "cartao" | "pix" | "boleto">("dinheiro")
   const [loadingVenda, setLoadingVenda] = useState(false)
@@ -34,6 +40,8 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
   const [observacoes, setObservacoes] = useState("")
   const [vendaFinalizada, setVendaFinalizada] = useState<Venda | null>(null)
   const [gerando, setGerando] = useState(false)
+  const [tentativasEnvio, setTentativasEnvio] = useState(0)
+  const [vendaPayload, setVendaPayload] = useState<any>(null)
 
   // Combinar produtos e serviços para cálculos
   const todosItens = [...(produtos || []), ...(servicos || [])]
@@ -52,6 +60,97 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
 
   const total = totalProdutos + totalServicos
   const totalItens = todosItens.reduce((sum, item) => sum + (item.quantidade || 0), 0)
+
+  // Efeito para tentar reenviar a venda se houver falha
+  useEffect(() => {
+    // Se temos um payload salvo e tentativas < 3, tentar novamente
+    if (vendaPayload && tentativasEnvio > 0 && tentativasEnvio < 3 && !vendaFinalizada) {
+      const enviarVenda = async () => {
+        try {
+          setLoadingVenda(true)
+          setMensagem(`Tentativa ${tentativasEnvio} de 3: Enviando dados para o servidor...`)
+
+          // Adicionar um pequeno delay antes de tentar novamente
+          await new Promise((resolve) => setTimeout(resolve, 1500))
+
+          // Tentar enviar novamente com o payload salvo
+          const saleResponse = await createSale(vendaPayload)
+          const vendaCriada = saleResponse.data as Venda
+
+          setVendaFinalizada(vendaCriada)
+          const successMsg = "Venda finalizada com sucesso!"
+          setMensagem(successMsg)
+          onShowNotification?.("success", successMsg)
+          onFinalizarVenda(vendaCriada)
+
+          // Limpar o payload e tentativas após sucesso
+          setVendaPayload(null)
+          setTentativasEnvio(0)
+        } catch (error) {
+          console.error(`Erro na tentativa ${tentativasEnvio}:`, error)
+
+          if (tentativasEnvio >= 2) {
+            // Na última tentativa, mostrar erro final
+            const errorMsg = "Falha ao enviar dados após várias tentativas. Verifique sua conexão e tente novamente."
+            setMensagem(errorMsg)
+            onShowNotification?.("error", errorMsg)
+          } else {
+            // Incrementar tentativas para próxima iteração
+            setTentativasEnvio((prev) => prev + 1)
+          }
+        } finally {
+          setLoadingVenda(false)
+        }
+      }
+
+      enviarVenda()
+    }
+  }, [tentativasEnvio, vendaPayload, vendaFinalizada, onFinalizarVenda, onShowNotification])
+
+  const prepararPayload = async () => {
+    try {
+      // Verifica e obtém o vendedor a partir do ID do usuário logado
+      const response = await verifyUserSalesperson(user?.user_id || 0)
+      const vendedor = response.data
+
+      if (!vendedor || !vendedor.seller_id) {
+        throw new Error("Usuário não é um vendedor válido.")
+      }
+
+      // Monta o payload que o backend espera com todos os campos obrigatórios
+      const payload = {
+        seller_id: vendedor.seller_id,
+        customer_id: cliente.customer_id,
+        products: todosItens.map((item) => {
+          const preco = typeof item.price === "number" && !isNaN(item.price) ? item.price : 0
+          const quantidade = typeof item.quantidade === "number" && !isNaN(item.quantidade) ? item.quantidade : 1
+          const subtotal = preco * quantidade
+
+          return {
+            product_id: item.product_id,
+            service_id: item.service_id,
+            quantity: quantidade,
+            price: Number(preco.toFixed(2)),
+            product_price: Number(preco.toFixed(2)),
+            total_sales: Number(subtotal.toFixed(2)),
+            zoneamento: item.zoneamento || "",
+          }
+        }),
+        payment_method: metodoPagamento,
+        total: Number(total.toFixed(2)),
+        amount: Number(total.toFixed(2)),
+        sale_type: "venda",
+        status: "concluida",
+        date: new Date().toISOString(),
+        observation: observacoes.trim() || undefined,
+      }
+
+      return payload
+    } catch (error) {
+      console.error("Erro ao preparar payload:", error)
+      throw error
+    }
+  }
 
   const handleFinalizarVenda = async () => {
     if (!user) {
@@ -92,45 +191,27 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
     }
 
     setLoadingVenda(true)
-    setMensagem(null)
+    setMensagem("Preparando dados para envio...")
 
     try {
-      // Verifica e obtém o vendedor a partir do ID do usuário logado
-      const response = await verifyUserSalesperson(user.user_id)
-      const vendedor = response.data
+      // Preparar o payload
+      const payload = await prepararPayload()
 
-      if (!vendedor || !vendedor.seller_id) {
-        throw new Error("Usuário não é um vendedor válido.")
+      // Salvar o payload para possíveis retentativas
+      setVendaPayload(payload)
+
+      // Informar ao usuário que estamos enviando os dados
+      setMensagem("Enviando dados para o servidor...")
+
+      // Adicionar cabeçalhos específicos para melhorar a confiabilidade
+      const headers = {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "Cache-Control": "no-cache",
       }
 
-      // Monta o payload que o backend espera com todos os campos obrigatórios
-      const vendaPayload = {
-        seller_id: vendedor.seller_id,
-        customer_id: cliente.customer_id,
-        products: todosItens.map((item) => {
-          const preco = typeof item.price === "number" && !isNaN(item.price) ? item.price : 0
-          const quantidade = typeof item.quantidade === "number" && !isNaN(item.quantidade) ? item.quantidade : 1
-          const subtotal = preco * quantidade
-
-          return {
-            product_id: item.product_id,
-            quantity: quantidade,
-            price: Number(preco.toFixed(2)),
-            product_price: Number(preco.toFixed(2)),
-            total_sales: Number(subtotal.toFixed(2)),
-            zoneamento: item.zoneamento || "",
-          }
-        }),
-        payment_method: metodoPagamento,
-        total: Number(total.toFixed(2)),
-        amount: Number(total.toFixed(2)),
-        sale_type: "venda",
-        status: "concluida",
-        date: new Date().toISOString(),
-        observation: observacoes.trim() || undefined,
-      }
-
-      const saleResponse = await createSale(vendaPayload)
+      // Usar diretamente o axios via api para ter mais controle
+      const saleResponse = await api.post("/sales", payload, { headers })
 
       const vendaCriada = saleResponse.data as Venda
       setVendaFinalizada(vendaCriada)
@@ -139,9 +220,13 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
       setMensagem(successMsg)
       onShowNotification?.("success", successMsg)
       onFinalizarVenda(vendaCriada)
+
+      // Limpar o payload e tentativas após sucesso
+      setVendaPayload(null)
+      setTentativasEnvio(0)
     } catch (error) {
       console.error("Erro ao criar venda:", error)
-      let errorMsg = "Erro ao finalizar a venda. Tente novamente."
+      let errorMsg = "Erro ao finalizar a venda. Tentando novamente..."
 
       if (error instanceof Error) {
         if (error.message.includes("total_sales") && error.message.includes("not-null")) {
@@ -154,12 +239,15 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
         } else if (error.message.includes("sale_type cannot be null")) {
           errorMsg = "Erro: Tipo de venda não pode ser nulo."
         } else {
-          errorMsg = error.message
+          errorMsg = `Erro: ${error.message}. Tentando novamente...`
         }
       }
 
       setMensagem(errorMsg)
-      onShowNotification?.("error", errorMsg)
+      onShowNotification?.("info", errorMsg)
+
+      // Iniciar tentativas de reenvio
+      setTentativasEnvio(1)
     } finally {
       setLoadingVenda(false)
     }
@@ -303,8 +391,8 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
                   {todosItens.map((item) => {
                     const precoInvalido = !item.price || isNaN(item.price) || item.price <= 0
                     const subtotal = (item.price || 0) * (item.quantidade || 0)
-                    const isProduto = produtos.some(p => p.product_id === item.product_id)
-                    const isServico = servicos.some(s => s.product_id === item.product_id)
+                    const isProduto = produtos.some((p) => p.product_id === item.product_id)
+                    const isServico = servicos.some((s) => s.product_id === item.product_id)
 
                     return (
                       <tr key={item.product_id} className={precoInvalido ? "bg-red-50" : ""}>
@@ -322,9 +410,11 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
                           </div>
                         </td>
                         <td className="px-2 lg:px-4 py-2 lg:py-3">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${isProduto ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                            }`}>
-                            {isProduto ? 'Produto' : 'Serviço'}
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${isProduto ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+                              }`}
+                          >
+                            {isProduto ? "Produto" : "Serviço"}
                           </span>
                         </td>
                         <td className="px-2 lg:px-4 py-2 lg:py-3">
@@ -334,7 +424,9 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
                             {precoInvalido ? "Preço inválido" : formatarPreco(item.price)}
                           </div>
                         </td>
-                        <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-gray-900">{item.quantidade}</td>
+                        <td className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-gray-900">
+                          {item.quantidade}
+                        </td>
                         <td className="px-2 lg:px-4 py-2 lg:py-3">
                           <div className="text-xs lg:text-sm font-medium text-gray-900">
                             {precoInvalido ? "R$ 0,00" : formatarPreco(subtotal)}
@@ -382,8 +474,8 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
                 <label
                   key={option.value}
                   className={`flex items-center justify-center p-2 lg:p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${metodoPagamento === option.value
-                    ? "border-red-500 bg-red-50 text-red-700"
-                    : "border-gray-300 bg-white hover:border-gray-400"
+                      ? "border-red-500 bg-red-50 text-red-700"
+                      : "border-gray-300 bg-white hover:border-gray-400"
                     }`}
                 >
                   <input
@@ -454,7 +546,8 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
                 <div>
                   <p className="text-gray-600 text-sm">Total da Venda</p>
                   <p className="text-gray-600 text-xs">
-                    {todosItens.length} item{todosItens.length !== 1 ? "s" : ""} • {totalItens} unidade{totalItens !== 1 ? "s" : ""}
+                    {todosItens.length} item{todosItens.length !== 1 ? "s" : ""} • {totalItens} unidade
+                    {totalItens !== 1 ? "s" : ""}
                   </p>
                 </div>
                 <div className="text-right">
@@ -467,14 +560,20 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
           {/* Mensagem de Status */}
           {mensagem && (
             <div
-              className={`p-4 rounded-lg border ${mensagem.includes("Erro") || mensagem.includes("inválido")
-                ? "bg-red-50 border-red-200 text-red-800"
-                : "bg-green-50 border-green-200 text-green-800"
+              className={`p-4 rounded-lg border ${mensagem.includes("Erro") || mensagem.includes("inválido") || mensagem.includes("Falha")
+                  ? "bg-red-50 border-red-200 text-red-800"
+                  : mensagem.includes("Tentativa") || mensagem.includes("Preparando") || mensagem.includes("Enviando")
+                    ? "bg-blue-50 border-blue-200 text-blue-800"
+                    : "bg-green-50 border-green-200 text-green-800"
                 }`}
             >
               <div className="flex items-center gap-2">
-                {mensagem.includes("Erro") || mensagem.includes("inválido") ? (
+                {mensagem.includes("Erro") || mensagem.includes("inválido") || mensagem.includes("Falha") ? (
                   <AlertCircle className="w-5 h-5" />
+                ) : mensagem.includes("Tentativa") ||
+                  mensagem.includes("Preparando") ||
+                  mensagem.includes("Enviando") ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <Check className="w-5 h-5" />
                 )}
@@ -496,7 +595,7 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({ cliente, produtos, servicos, 
               {loadingVenda ? (
                 <>
                   <Loader2 className="w-4 h-4 lg:w-5 lg:h-5 mr-2 animate-spin" />
-                  Finalizando Venda...
+                  {tentativasEnvio > 0 ? `Tentativa ${tentativasEnvio} de 3...` : "Finalizando Venda..."}
                 </>
               ) : (
                 <>
