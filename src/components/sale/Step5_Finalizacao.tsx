@@ -6,7 +6,8 @@ import type { Cliente, ProdutoSelecionado, ServicoSelecionado, Venda } from "@/t
 import { createSale } from "@/api/sale"
 import { verifyUserSalesperson } from "@/api/user"
 import { Button } from "@/components/ui/button"
-import { FileText, Check, AlertCircle, Loader2, ExternalLink, Package, Wrench } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { FileText, Check, AlertCircle, Loader2, ExternalLink, Package, Wrench, CreditCard } from "lucide-react"
 import { downloadPDF, openPDFInNewTab, convertVendaForPDF } from "@/lib/generate-pdf"
 import { useUser } from "@/context/UserContext"
 import { api } from "@/api"
@@ -35,6 +36,7 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
 }) => {
   const { user } = useUser()
   const [metodoPagamento, setMetodoPagamento] = useState<"dinheiro" | "cartao" | "pix" | "boleto">("dinheiro")
+  const [numeroParcelas, setNumeroParcelas] = useState<number>(1)
   const [loadingVenda, setLoadingVenda] = useState(false)
   const [mensagem, setMensagem] = useState<string | null>(null)
   const [observacoes, setObservacoes] = useState("")
@@ -61,19 +63,60 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
   const total = totalProdutos + totalServicos
   const totalItens = todosItens.reduce((sum, item) => sum + (item.quantidade || 0), 0)
 
+  // Opções de parcelas disponíveis
+  const opcoesParcelasCartao = [
+    { value: 1, label: "À vista" },
+    { value: 2, label: "2x" },
+    { value: 3, label: "3x" },
+    { value: 4, label: "4x" },
+    { value: 5, label: "5x" },
+    { value: 6, label: "6x" },
+    { value: 7, label: "7x" },
+    { value: 8, label: "8x" },
+    { value: 9, label: "9x" },
+    { value: 10, label: "10x" },
+    { value: 11, label: "11x" },
+    { value: 12, label: "12x" },
+  ]
+
+  const opcoesParcelas = [
+    { value: 1, label: "À vista" },
+    { value: 2, label: "2x" },
+    { value: 3, label: "3x" },
+    { value: 4, label: "4x" },
+    { value: 5, label: "5x" },
+    { value: 6, label: "6x" },
+    { value: 7, label: "7x" },
+    { value: 8, label: "8x" },
+    { value: 9, label: "9x" },
+    { value: 10, label: "10x" },
+    { value: 11, label: "11x" },
+    { value: 12, label: "12x" },
+    { value: 15, label: "15x" },
+    { value: 18, label: "18x" },
+    { value: 24, label: "24x" },
+  ]
+
+  // Resetar parcelas quando mudar método de pagamento
+  useEffect(() => {
+    if (metodoPagamento === "dinheiro" || metodoPagamento === "pix") {
+      setNumeroParcelas(1)
+    }
+  }, [metodoPagamento])
+
+  // Calcular valor da parcela
+  const valorParcela = numeroParcelas > 1 ? total / numeroParcelas : total
+
   // Efeito para tentar reenviar a venda se houver falha
   useEffect(() => {
-    // Se temos um payload salvo e tentativas < 3, tentar novamente
     if (vendaPayload && tentativasEnvio > 0 && tentativasEnvio < 3 && !vendaFinalizada) {
       const enviarVenda = async () => {
         try {
           setLoadingVenda(true)
           setMensagem(`Tentativa ${tentativasEnvio} de 3: Enviando dados para o servidor...`)
 
-          // Adicionar um pequeno delay antes de tentar novamente
           await new Promise((resolve) => setTimeout(resolve, 1500))
 
-          // Tentar enviar novamente com o payload salvo
           const saleResponse = await createSale(vendaPayload)
           const vendaCriada = saleResponse.data as Venda
 
@@ -83,19 +126,16 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
           onShowNotification?.("success", successMsg)
           onFinalizarVenda(vendaCriada)
 
-          // Limpar o payload e tentativas após sucesso
           setVendaPayload(null)
           setTentativasEnvio(0)
         } catch (error) {
           console.error(`Erro na tentativa ${tentativasEnvio}:`, error)
 
           if (tentativasEnvio >= 2) {
-            // Na última tentativa, mostrar erro final
             const errorMsg = "Falha ao enviar dados após várias tentativas. Verifique sua conexão e tente novamente."
             setMensagem(errorMsg)
             onShowNotification?.("error", errorMsg)
           } else {
-            // Incrementar tentativas para próxima iteração
             setTentativasEnvio((prev) => prev + 1)
           }
         } finally {
@@ -109,7 +149,6 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
 
   const prepararPayload = async () => {
     try {
-      // Verifica e obtém o vendedor a partir do ID do usuário logado
       const response = await verifyUserSalesperson(user?.user_id || 0)
       const vendedor = response.data
 
@@ -117,7 +156,12 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
         throw new Error("Usuário não é um vendedor válido.")
       }
 
-      // Monta o payload que o backend espera com todos os campos obrigatórios
+      // Preparar o método de pagamento com parcelas se aplicável
+      let paymentMethodString = metodoPagamento
+      if ((metodoPagamento === "cartao" || metodoPagamento === "boleto") && numeroParcelas > 1) {
+        paymentMethodString = `${metodoPagamento} (${numeroParcelas}x)`
+      }
+
       const payload = {
         seller_id: vendedor.seller_id,
         customer_id: cliente.customer_id,
@@ -136,7 +180,9 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
             zoneamento: item.zoneamento || "",
           }
         }),
-        payment_method: metodoPagamento,
+        payment_method: paymentMethodString,
+        installments: numeroParcelas,
+        installment_value: Number(valorParcela.toFixed(2)),
         total: Number(total.toFixed(2)),
         amount: Number(total.toFixed(2)),
         sale_type: "venda",
@@ -181,7 +227,6 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
       return
     }
 
-    // Validar se todos os itens têm preço válido
     const itensSemPreco = todosItens.filter((item) => !item.price || isNaN(item.price) || item.price <= 0)
     if (itensSemPreco.length > 0) {
       const errorMsg = `Os seguintes itens não possuem preço válido: ${itensSemPreco.map((item) => item.name).join(", ")}`
@@ -194,25 +239,17 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
     setMensagem("Preparando dados para envio...")
 
     try {
-      // Preparar o payload
       const payload = await prepararPayload()
-
-      // Salvar o payload para possíveis retentativas
       setVendaPayload(payload)
-
-      // Informar ao usuário que estamos enviando os dados
       setMensagem("Enviando dados para o servidor...")
 
-      // Adicionar cabeçalhos específicos para melhorar a confiabilidade
       const headers = {
         "Content-Type": "application/json",
         "X-Requested-With": "XMLHttpRequest",
         "Cache-Control": "no-cache",
       }
 
-      // Usar diretamente o axios via api para ter mais controle
       const saleResponse = await api.post("/sales", payload, { headers })
-
       const vendaCriada = saleResponse.data as Venda
       setVendaFinalizada(vendaCriada)
 
@@ -221,7 +258,6 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
       onShowNotification?.("success", successMsg)
       onFinalizarVenda(vendaCriada)
 
-      // Limpar o payload e tentativas após sucesso
       setVendaPayload(null)
       setTentativasEnvio(0)
     } catch (error) {
@@ -245,8 +281,6 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
 
       setMensagem(errorMsg)
       onShowNotification?.("info", errorMsg)
-
-      // Iniciar tentativas de reenvio
       setTentativasEnvio(1)
     } finally {
       setLoadingVenda(false)
@@ -259,9 +293,7 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
     setGerando(true)
 
     try {
-      // Usar a função utilitária para converter os dados
       const vendaParaPDF = convertVendaForPDF(vendaFinalizada, cliente, todosItens, user!)
-
       downloadPDF(vendaParaPDF)
       onShowNotification?.("success", "Relatório HTML gerado e baixado com sucesso!")
     } catch (error) {
@@ -276,9 +308,7 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
     if (!vendaFinalizada) return
 
     try {
-      // Usar a função utilitária para converter os dados
       const vendaParaPDF = convertVendaForPDF(vendaFinalizada, cliente, todosItens, user!)
-
       openPDFInNewTab(vendaParaPDF)
     } catch (error) {
       console.error("Erro ao visualizar relatório:", error)
@@ -287,15 +317,16 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
   }
 
   const metodoPagamentoOptions = [
-    { value: "dinheiro", label: "Dinheiro", icon: "💵" },
-    { value: "cartao", label: "Cartão", icon: "💳" },
-    { value: "pix", label: "PIX", icon: "📱" },
-    { value: "boleto", label: "Boleto", icon: "📄" },
+    { value: "dinheiro", label: "Dinheiro", icon: "💵", description: "Pagamento à vista" },
+    { value: "cartao", label: "Cartão", icon: "💳", description: "Crédito ou débito" },
+    { value: "pix", label: "PIX", icon: "📱", description: "Transferência instantânea" },
+    { value: "boleto", label: "Boleto", icon: "📄", description: "Boleto bancário" },
   ]
 
-  // Verificar se há itens com preços inválidos
   const itensComPrecoInvalido = todosItens.filter((item) => !item.price || isNaN(item.price) || item.price <= 0)
   const temItensInvalidos = itensComPrecoInvalido.length > 0
+
+  const mostrarParcelas = metodoPagamento === "cartao" || metodoPagamento === "boleto"
 
   return (
     <div className="w-full p-4 lg:p-6">
@@ -457,25 +488,20 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
           </section>
 
           {/* Método de Pagamento */}
-          <section className="bg-gray-50 rounded-lg p-3 lg:p-4 border border-gray-200 w-full">
-            <h3 className="font-semibold text-base lg:text-lg mb-3 flex items-center gap-2 text-gray-800">
-              <svg className="w-4 h-4 lg:w-5 lg:h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                />
-              </svg>
+          <section className="bg-gray-50 rounded-lg p-4 border border-gray-200 w-full">
+            <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 text-gray-800">
+              <CreditCard className="w-5 h-5 text-red-600" />
               Método de Pagamento
             </h3>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-3 w-full">
+
+            {/* Seleção do método de pagamento */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
               {metodoPagamentoOptions.map((option) => (
                 <label
                   key={option.value}
-                  className={`flex items-center justify-center p-2 lg:p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 ${metodoPagamento === option.value
-                      ? "border-red-500 bg-red-50 text-red-700"
-                      : "border-gray-300 bg-white hover:border-gray-400"
+                  className={`flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${metodoPagamento === option.value
+                    ? "border-red-500 bg-red-50 text-red-700 shadow-md"
+                    : "border-gray-300 bg-white hover:border-gray-400"
                     }`}
                 >
                   <input
@@ -486,13 +512,66 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
                     onChange={(e) => setMetodoPagamento(e.target.value as typeof metodoPagamento)}
                     className="sr-only"
                   />
-                  <span className="text-center">
-                    <div className="text-lg lg:text-2xl mb-1">{option.icon}</div>
-                    <div className="text-xs lg:text-sm font-medium">{option.label}</div>
-                  </span>
+                  <div className="text-2xl mb-2">{option.icon}</div>
+                  <div className="text-sm font-medium text-center">{option.label}</div>
+                  <div className="text-xs text-gray-500 text-center mt-1">{option.description}</div>
                 </label>
               ))}
             </div>
+
+            {/* Seleção de parcelas para cartão e boleto */}
+            {mostrarParcelas && (
+              <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <CreditCard className="w-4 h-4 text-blue-600" />
+                  <h4 className="font-medium text-gray-800">Número de Parcelas</h4>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Selecione as parcelas:</label>
+                    <Select
+                      value={numeroParcelas.toString()}
+                      onValueChange={(value) => setNumeroParcelas(Number.parseInt(value))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(metodoPagamento === "cartao" ? opcoesParcelasCartao : opcoesParcelas).map((opcao) => (
+                          <SelectItem key={opcao.value} value={opcao.value.toString()}>
+                            {opcao.label}
+                            {opcao.value > 1 && ` - ${formatarPreco(total / opcao.value)} cada`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex flex-col justify-end">
+                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                      <div className="text-sm text-blue-800">
+                        <div className="font-medium">Resumo do Pagamento:</div>
+                        <div className="mt-1">
+                          {numeroParcelas === 1 ? (
+                            <span>
+                              À vista: <strong>{formatarPreco(total)}</strong>
+                            </span>
+                          ) : (
+                            <>
+                              <div>
+                                {numeroParcelas}x de <strong>{formatarPreco(valorParcela)}</strong>
+                              </div>
+                              <div className="text-xs text-blue-600 mt-1">Total: {formatarPreco(total)}</div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Observações */}
@@ -549,6 +628,11 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
                     {todosItens.length} item{todosItens.length !== 1 ? "s" : ""} • {totalItens} unidade
                     {totalItens !== 1 ? "s" : ""}
                   </p>
+                  {mostrarParcelas && numeroParcelas > 1 && (
+                    <p className="text-blue-600 text-sm font-medium mt-1">
+                      {numeroParcelas}x de {formatarPreco(valorParcela)}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-3xl font-bold text-red-700">{formatarPreco(total)}</p>
@@ -561,14 +645,17 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
           {mensagem && (
             <div
               className={`p-4 rounded-lg border ${mensagem.includes("Erro") || mensagem.includes("inválido") || mensagem.includes("Falha")
-                  ? "bg-red-50 border-red-200 text-red-800"
-                  : mensagem.includes("Tentativa") || mensagem.includes("Preparando") || mensagem.includes("Enviando")
-                    ? "bg-blue-50 border-blue-200 text-blue-800"
-                    : "bg-green-50 border-green-200 text-green-800"
+                ? "bg-red-50 border-red-200 text-red-800"
+                : mensagem.includes("Tentativa") || mensagem.includes("Preparando") || mensagem.includes("Enviando")
+                  ? "bg-blue-50 border-blue-200 text-blue-800"
+                  : "bg-green-50 border-green-200 text-green-800"
                 }`}
             >
               <div className="flex items-center gap-2">
-                {mensagem.includes("Erro") || mensagem.includes("inválido") || mensagem.includes("Falha") ? (
+                {mensagem.includes("Erro") ||
+                  mensagem.includes("inválido") ||
+                  mensagem.includes("Falha") ||
+                  mensagem.includes("Failed") ? (
                   <AlertCircle className="w-5 h-5" />
                 ) : mensagem.includes("Tentativa") ||
                   mensagem.includes("Preparando") ||
@@ -601,6 +688,11 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
                 <>
                   <Check className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
                   Finalizar Venda - {formatarPreco(total)}
+                  {mostrarParcelas && numeroParcelas > 1 && (
+                    <span className="ml-2 text-red-200">
+                      ({numeroParcelas}x de {formatarPreco(valorParcela)})
+                    </span>
+                  )}
                 </>
               )}
             </Button>

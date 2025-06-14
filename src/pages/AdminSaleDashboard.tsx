@@ -435,8 +435,8 @@ export default function AdminDashboard() {
         if (searchTerm) {
             const searchLower = searchTerm.toLowerCase()
             return (
-                sale.Customer.name?.toLowerCase().includes(searchLower) ||
-                sale.Salesperson.User.name.toLowerCase().includes(searchLower) ||
+                sale.Customer?.name?.toLowerCase().includes(searchLower) ||
+                sale.Salesperson.User?.name?.toLowerCase().includes(searchLower) ||
                 sale.sale_id.toString().includes(searchLower)
             )
         }

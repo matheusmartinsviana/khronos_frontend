@@ -41,7 +41,7 @@ import { getServices, getServiceById, createService, updateService, deleteServic
 
 // Tipos
 interface Servico {
-    product_id: number
+    service_id: number
     name: string
     code: string | null
     price: number
@@ -155,7 +155,7 @@ export default function ServicosPage() {
 
             const servicosFormatados: Servico[] = Array.isArray(response.data)
                 ? response.data.map((item: any) => ({
-                    product_id: item.product_id,
+                    service_id: item.service_id,
                     name: item.name || "Nome não informado",
                     description: item.description,
                     price: item.price || 0,
@@ -364,12 +364,12 @@ export default function ServicosPage() {
     }
 
     const onSubmitEdit = async (data: ServicoFormData) => {
-        if (!currentServico?.product_id) return
+        if (!currentServico?.service_id) return
 
         setEditLoading(true)
 
         try {
-            await updateService(currentServico.product_id.toString(), data)
+            await updateService(currentServico.service_id.toString(), data)
             setEditDialogOpen(false)
             await fetchServicos()
         } catch (error) {
@@ -647,7 +647,7 @@ export default function ServicosPage() {
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {currentPageItems.map((servico) => (
-                                <Card key={servico.product_id} className="overflow-hidden">
+                                <Card key={servico.service_id} className="overflow-hidden">
                                     <CardHeader className="pb-2">
                                         <div className="flex justify-between items-start">
                                             <div className="space-y-1">
@@ -672,13 +672,13 @@ export default function ServicosPage() {
                                                 )}
                                             </div>
                                             <div className="flex justify-end gap-2 pt-2">
-                                                <Button variant="outline" size="sm" onClick={() => onEdit(servico.product_id)}>
+                                                <Button variant="outline" size="sm" onClick={() => onEdit(servico.service_id)}>
                                                     <PenIcon className="h-4 w-4" />
                                                 </Button>
                                                 <Button
                                                     variant="destructive"
                                                     size="sm"
-                                                    onClick={() => handleOpenDeleteModal(servico.product_id)}
+                                                    onClick={() => handleOpenDeleteModal(servico.service_id)}
                                                 >
                                                     <TrashIcon className="h-4 w-4" />
                                                 </Button>

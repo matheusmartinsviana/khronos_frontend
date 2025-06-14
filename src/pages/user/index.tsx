@@ -1,10 +1,8 @@
-"use client"
-
 import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { getUser, getUserById, createUser, updateUser, removeUser, createSalesperson } from "@/api/user"
+import { getUser, getUserById, createUser, updateUser, removeUser, createSalesperson, createAdmin, updateUserInfo } from "@/api/user"
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
@@ -49,7 +47,6 @@ export default function UsersPage() {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [createDialogOpen, setCreateDialogOpen] = useState(false)
-    const [salespersonDialogOpen, setSalespersonDialogOpen] = useState(false)
     const [idToDelete, setIdToDelete] = useState<string | null>(null)
     const [filteredUsers, setFilteredUsers] = useState<UserData[]>([])
     const [currentUser, setCurrentUser] = useState<UserData | null>(null)
@@ -80,16 +77,6 @@ export default function UsersPage() {
             email: "",
             password: "",
             role: "viewer",
-        },
-    })
-
-    const salespersonForm = useForm<UserFormData>({
-        resolver: zodResolver(userSchema),
-        defaultValues: {
-            name: "",
-            email: "",
-            password: "",
-            role: "salesperson",
         },
     })
 
@@ -158,10 +145,6 @@ export default function UsersPage() {
         setCreateDialogOpen(true)
     }
 
-    const onCreateSalesperson = () => {
-        setSalespersonDialogOpen(true)
-    }
-
     const onEdit = async (userId: string) => {
         await fetchUser(userId)
         setEditDialogOpen(true)
@@ -188,7 +171,18 @@ export default function UsersPage() {
     const onSubmitCreate = async (data: UserFormData) => {
         setCreateLoading(true)
         try {
-            await createUser(data)
+            switch (data.role) {
+                case "admin":
+                    await createAdmin(data)
+                    break
+                case "salesperson":
+                    await createSalesperson(data)
+                    break
+                default:
+                    await createUser(data)
+                    break
+            }
+
             setCreateDialogOpen(false)
             userForm.reset()
             await fetchUsers()
@@ -206,6 +200,15 @@ export default function UsersPage() {
         try {
             // Remove password if empty
             const updateData = data.password ? data : { ...data, password: undefined }
+
+            if (!data.password) {
+                await updateUserInfo(currentUser?.user_id, updateData)
+                setEditDialogOpen(false)
+                userForm.reset()
+                await fetchUsers()
+                return
+            }
+
             await updateUser(currentUser.user_id.toString(), updateData)
             setEditDialogOpen(false)
             await fetchUsers()
@@ -213,20 +216,6 @@ export default function UsersPage() {
             console.error("Erro ao atualizar usuário:", error)
         } finally {
             setEditLoading(false)
-        }
-    }
-
-    const onSubmitSalesperson = async (data: UserFormData) => {
-        setCreateLoading(true)
-        try {
-            await createSalesperson(data)
-            setSalespersonDialogOpen(false)
-            salespersonForm.reset()
-            await fetchUsers()
-        } catch (error) {
-            console.error("Erro ao criar vendedor:", error)
-        } finally {
-            setCreateLoading(false)
         }
     }
 
@@ -258,10 +247,6 @@ export default function UsersPage() {
                         <Button onClick={onAdd} className="w-full sm:w-auto">
                             <UserPlus className="mr-2 h-4 w-4" />
                             Novo Usuário
-                        </Button>
-                        <Button onClick={onCreateSalesperson} variant="outline" className="w-full sm:w-auto">
-                            <Shield className="mr-2 h-4 w-4" />
-                            Novo Vendedor
                         </Button>
                     </div>
                 </div>
@@ -473,10 +458,9 @@ export default function UsersPage() {
                                                             </SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                            <SelectItem value="user">Usuário</SelectItem>
+                                                            <SelectItem value="viewer">Visualizador</SelectItem>
                                                             <SelectItem value="salesperson">Vendedor</SelectItem>
                                                             <SelectItem value="admin">Administrador</SelectItem>
-                                                            <SelectItem value="viewer">Visualizador</SelectItem>
                                                             <SelectItem value="blocked">Bloqueado</SelectItem>
                                                         </SelectContent>
                                                     </Select>
@@ -602,10 +586,9 @@ export default function UsersPage() {
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
-                                                        <SelectItem value="user">Usuário</SelectItem>
+                                                        <SelectItem value="viewer">Visualizador</SelectItem>
                                                         <SelectItem value="salesperson">Vendedor</SelectItem>
                                                         <SelectItem value="admin">Administrador</SelectItem>
-                                                        <SelectItem value="viewer">Visualizador</SelectItem>
                                                         <SelectItem value="blocked">Bloqueado</SelectItem>
                                                     </SelectContent>
                                                 </Select>
@@ -652,128 +635,6 @@ export default function UsersPage() {
                                             <>
                                                 <Save className="mr-2 h-4 w-4" />
                                                 Salvar Usuário
-                                            </>
-                                        )}
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </Form>
-                    </DialogContent>
-                </Dialog>
-
-                {/* Dialog de Criação de Vendedor */}
-                <Dialog open={salespersonDialogOpen} onOpenChange={setSalespersonDialogOpen}>
-                    <DialogContent className="sm:max-w-md md:max-w-lg max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                                <Shield className="h-5 w-5 text-red-600" />
-                                Cadastrar Novo Vendedor
-                            </DialogTitle>
-                            <DialogDescription>Preencha os dados do novo vendedor</DialogDescription>
-                        </DialogHeader>
-
-                        <Form {...salespersonForm}>
-                            <form onSubmit={salespersonForm.handleSubmit(onSubmitSalesperson)} className="space-y-4">
-                                {/* Nome */}
-                                <FormField
-                                    control={salespersonForm.control}
-                                    name="name"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="flex items-center gap-2">
-                                                <User className="h-4 w-4 text-red-600" />
-                                                Nome <span className="text-red-600">*</span>
-                                            </FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Digite o nome completo" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                {/* Email e Telefone */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <FormField
-                                        control={salespersonForm.control}
-                                        name="email"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="flex items-center gap-2">
-                                                    <Mail className="h-4 w-4 text-red-600" />
-                                                    Email <span className="text-red-600">*</span>
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="email@exemplo.com" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-
-                                {/* Status */}
-                                <FormField
-                                    control={salespersonForm.control}
-                                    name="role"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="flex items-center gap-2">
-                                                <Shield className="h-4 w-4 text-red-600" />
-                                                Função <span className="text-red-600">*</span>
-                                            </FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Selecione a função" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="salesperson">Vendedor</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                {/* Senha */}
-                                <FormField
-                                    control={salespersonForm.control}
-                                    name="password"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="flex items-center gap-2">
-                                                <User className="h-4 w-4 text-red-600" />
-                                                Senha <span className="text-red-600">*</span>
-                                            </FormLabel>
-                                            <FormControl>
-                                                <Input type="password" placeholder="Senha" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <DialogFooter className="pt-4">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => setSalespersonDialogOpen(false)}
-                                        disabled={createLoading}
-                                    >
-                                        Cancelar
-                                    </Button>
-                                    <Button type="submit" disabled={createLoading}>
-                                        {createLoading ? (
-                                            <>
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                Salvando...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Save className="mr-2 h-4 w-4" />
-                                                Salvar Vendedor
                                             </>
                                         )}
                                     </Button>

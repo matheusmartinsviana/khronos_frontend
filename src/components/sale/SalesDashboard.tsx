@@ -103,7 +103,7 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                 })
             } catch (error) {
                 console.error("Erro ao buscar vendas:", error)
-                onShowNotification("error", "Erro ao carregar histórico de vendas")
+                onShowNotification("error", "Erro ao carregar vendas.")
                 setVendas([])
             } finally {
                 setLoading(false)
