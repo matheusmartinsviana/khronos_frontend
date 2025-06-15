@@ -1,5 +1,5 @@
 import { useAuth } from "@/context/AuthContext"; // ajuste o caminho se necessário
-import { LogOut, LayoutDashboard, CircleDollarSign, Users, PackageSearch, Wrench } from "lucide-react"
+import { LogOut, LayoutDashboard, CircleDollarSign, Users, PackageSearch, Wrench, Package, Import } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -65,14 +65,24 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
               {user?.role === "admin" && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <Link className="gap-5" to="/usuarios">
-                      <Users color="var(--primary-color)" />
-                      <span>Usuários</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <Link className="gap-5" to="/usuarios">
+                        <Users color="var(--primary-color)" />
+                        <span>Usuários</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <Link className="gap-5" to="/importacao">
+                        <Import color="var(--primary-color)" />
+                        <span>Importação</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
               )}
             </SidebarMenu>
           </SidebarGroupContent>

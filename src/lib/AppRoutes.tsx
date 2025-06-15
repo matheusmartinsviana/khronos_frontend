@@ -16,6 +16,7 @@ import { PageTracker } from "@/utils/page-tracker"
 import UsersPage from "@/pages/user"
 import ServicosPage from "@/pages/service"
 import AdminDashboard from "@/pages/AdminSaleDashboard"
+import ImportPage from "@/pages/import"
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
     const { isAuthenticated } = useAuth()
@@ -59,6 +60,7 @@ function AppRoutesInner() {
                 <Route path="/servicos" element={<ServicosPage />} />
                 <Route path="/usuarios" element={<UsersPage />} />
                 <Route path="/configuracoes" element={<Settings />} />
+                <Route path="/importacao" element={<ImportPage />} />
             </Route>
         </Routes>
     )

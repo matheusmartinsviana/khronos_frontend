@@ -1,8 +1,20 @@
+"use client"
+
 import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { getUser, getUserById, createUser, updateUser, removeUser, createSalesperson, createAdmin, updateUserInfo } from "@/api/user"
+import {
+    getUser,
+    getUserById,
+    createUser,
+    updateUser,
+    removeUser,
+    createSalesperson,
+    createAdmin,
+    updateUserInfo,
+    verifyUserSalesperson,
+} from "@/api/user"
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
@@ -15,17 +27,18 @@ import {
 import { Input } from "@/components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { TrashIcon, PenIcon, UserPlus, Search, Loader2, Save, User, Mail, Shield } from "lucide-react"
+import { TrashIcon, PenIcon, UserPlus, Search, Loader2, Save, User, Mail, Shield, Percent } from "lucide-react"
 
 const searchSchema = z.object({
     search: z.string(),
 })
 
 const userSchema = z.object({
-    name: z.string().min(1, "Nome é obrigatório"),
+    name: z.string().min(0, "Nome é obrigatório"),
     email: z.string().email("Email inválido"),
     password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres").optional().or(z.literal("")),
     role: z.enum(["salesperson", "admin", "viewer", "blocked"]),
+    commission: z.coerce.number().min(0, "Comissão deve ser um número positivo").optional(),
 })
 
 type SearchFormData = z.infer<typeof searchSchema>
@@ -37,6 +50,7 @@ interface UserData {
     email: string
     password?: string
     role: "salesperson" | "admin" | "viewer" | "blocked"
+    commission?: number
     createdAt?: string
     updatedAt?: string
 }
@@ -52,6 +66,7 @@ export default function UsersPage() {
     const [currentUser, setCurrentUser] = useState<UserData | null>(null)
     const [editLoading, setEditLoading] = useState(false)
     const [createLoading, setCreateLoading] = useState(false)
+    const [salespersonCommissions, setSalespersonCommissions] = useState<Record<number, number>>({})
 
     const searchForm = useForm<SearchFormData>({
         resolver: zodResolver(searchSchema),
@@ -67,6 +82,7 @@ export default function UsersPage() {
             email: "",
             password: "",
             role: "viewer",
+            commission: 0,
         },
     })
 
@@ -77,8 +93,28 @@ export default function UsersPage() {
             email: "",
             password: "",
             role: "viewer",
+            commission: 0,
         },
     })
+
+    const fetchSalespersonCommissions = async (users: UserData[]) => {
+        const commissions: Record<number, number> = {}
+
+        for (const user of users) {
+            if (user.role === "salesperson") {
+                try {
+                    const response = await verifyUserSalesperson(user.user_id.toString())
+                    if (response.data && response.data.commission) {
+                        commissions[user.user_id] = response.data.commission
+                    }
+                } catch (error) {
+                    console.error(`Erro ao buscar comissão do vendedor ${user.user_id}:`, error)
+                }
+            }
+        }
+
+        setSalespersonCommissions(commissions)
+    }
 
     const fetchUsers = async () => {
         try {
@@ -91,6 +127,7 @@ export default function UsersPage() {
                     name: item.name || "Nome não informado",
                     email: item.email || "",
                     role: item.role || "viewer",
+                    commission: item.commission || 0,
                     createdAt: item.createdAt || item.created_at,
                     updatedAt: item.updatedAt || item.updated_at,
                 }))
@@ -98,6 +135,9 @@ export default function UsersPage() {
 
             setUsers(usersFormatted)
             setFilteredUsers(usersFormatted)
+
+            // Fetch commission data for salespersons
+            await fetchSalespersonCommissions(usersFormatted)
         } catch (error) {
             console.error("Erro ao buscar usuários:", error)
         } finally {
@@ -112,11 +152,22 @@ export default function UsersPage() {
             const user = response.data
             setCurrentUser(user)
 
+            let commission = 0
+            if (user.role === "salesperson") {
+                try {
+                    const salespersonResponse = await verifyUserSalesperson(userId)
+                    commission = salespersonResponse.data?.commission || 0
+                } catch (error) {
+                    console.error("Erro ao buscar dados do vendedor:", error)
+                }
+            }
+
             editForm.reset({
                 name: user.name || "",
                 email: user.email || "",
                 password: "",
                 role: user.role || "viewer",
+                commission: commission,
             })
         } catch (error) {
             console.error("Erro ao buscar usuário:", error)
@@ -310,6 +361,9 @@ export default function UsersPage() {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Função
                                         </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Comissão
+                                        </th>
                                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Ações
                                         </th>
@@ -340,6 +394,18 @@ export default function UsersPage() {
                                                 >
                                                     {getRoleLabel(user.role)}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {user.role === "salesperson" ? (
+                                                    <div className="flex items-center gap-1">
+                                                        <Percent className="h-4 w-4 text-gray-400" />
+                                                        <span className="text-sm font-medium text-gray-900">
+                                                            {salespersonCommissions[user.user_id] || 0}%
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-sm text-gray-400">-</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <div className="flex justify-end gap-2">
@@ -468,8 +534,35 @@ export default function UsersPage() {
                                                 </FormItem>
                                             )}
                                         />
+                                        {editForm.watch("role") === "salesperson" && (
+                                            <FormField
+                                                control={editForm.control}
+                                                name="commission"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="flex items-center gap-2">
+                                                            <Percent className="h-4 w-4 text-red-600" />
+                                                            Porcentagem de Comissão <span className="text-red-600">*</span>
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input
+                                                                type="number"
+                                                                placeholder="Porcentagem de Comissão"
+                                                                step="0.1"
+                                                                min="0"
+                                                                max="100"
+                                                                value={field.value || ""}
+                                                                onChange={(e) =>
+                                                                    field.onChange(e.target.value === "" ? 0 : Number.parseFloat(e.target.value))
+                                                                }
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        )}
                                     </div>
-
                                     {/* Senha */}
                                     <FormField
                                         control={editForm.control}
@@ -596,6 +689,34 @@ export default function UsersPage() {
                                             </FormItem>
                                         )}
                                     />
+                                    {userForm.watch("role") === "salesperson" && (
+                                        <FormField
+                                            control={userForm.control}
+                                            name="commission"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="flex items-center gap-2">
+                                                        <Percent className="h-4 w-4 text-red-600" />
+                                                        Porcentagem de Comissão <span className="text-red-600">*</span>
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="number"
+                                                            placeholder="Ex: 5.5"
+                                                            step="0.1"
+                                                            min="0"
+                                                            max="100"
+                                                            value={field.value || ""}
+                                                            onChange={(e) =>
+                                                                field.onChange(e.target.value === "" ? 0 : Number.parseFloat(e.target.value))
+                                                            }
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    )}
                                 </div>
 
                                 {/* Senha */}

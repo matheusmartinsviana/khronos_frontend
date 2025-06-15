@@ -1389,10 +1389,10 @@ export default function AdminDashboard() {
                                                                 <div className="flex items-center gap-2">
                                                                     <Avatar className="h-6 w-6">
                                                                         <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
-                                                                            {sale.Salesperson.User.name.charAt(0)}
+                                                                            {sale?.Salesperson?.User?.name?.charAt(0)}
                                                                         </AvatarFallback>
                                                                     </Avatar>
-                                                                    <span className="truncate">{sale.Salesperson.User.name}</span>
+                                                                    <span className="truncate">{sale?.Salesperson?.User?.name}</span>
                                                                 </div>
                                                             </TableCell>
                                                             <TableCell className="font-medium">{formatPrice(sale.amount)}</TableCell>

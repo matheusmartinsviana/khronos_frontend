@@ -50,6 +50,17 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                 console.log("Vendas recebidas do backend:", response.data)
                 const vendasData = Array.isArray(response.data) ? response.data : []
 
+                if (vendasData.length === 0) {
+                    setVendas([])
+                    setStats({
+                        totalVendas: 0,
+                        totalValor: 0,
+                        vendasHoje: 0,
+                        valorHoje: 0,
+                    })
+                    return
+                }
+
                 // Mapear os dados do backend para o formato esperado pelo frontend
                 const vendasMapeadas: Venda[] = vendasData.map((venda: any) => {
                     // Mapear produtos e serviços corretamente
@@ -105,6 +116,12 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                 console.error("Erro ao buscar vendas:", error)
                 onShowNotification("error", "Erro ao carregar vendas.")
                 setVendas([])
+                setStats({
+                    totalVendas: 0,
+                    totalValor: 0,
+                    vendasHoje: 0,
+                    valorHoje: 0,
+                })
             } finally {
                 setLoading(false)
             }
