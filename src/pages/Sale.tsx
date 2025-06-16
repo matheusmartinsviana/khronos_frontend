@@ -138,6 +138,7 @@ export default function SalesPage() {
         clienteSelecionado,
         produtosSelecionados,
         servicosSelecionados,
+        user,
       )
 
       // Preparar dados do email

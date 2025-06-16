@@ -6,6 +6,7 @@ export function generateReportHTML(
   cliente: Cliente,
   produtos: ProdutoSelecionado[],
   servicos: ServicoSelecionado[],
+  salesperson: User,
 ): string {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -14,6 +15,7 @@ export function generateReportHTML(
     }).format(value)
   }
 
+  console.log("Generating report HTML for sale:", venda)
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("pt-BR", {
       day: "2-digit",
@@ -332,6 +334,20 @@ export function generateReportHTML(
               <div class="info-row">
                 <div class="info-label">Tipo de Venda:</div>
                 <div class="info-value">${venda.sale_type}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Vendedor</div>
+            <div class="info-grid">
+              <div class="info-row">
+                <div class="info-label">Nome:</div>
+                <div class="info-value">${salesperson.name}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">Email:</div>
+                <div class="info-value">${salesperson.email}</div>
               </div>
             </div>
           </div>
