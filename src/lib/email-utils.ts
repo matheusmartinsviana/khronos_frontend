@@ -330,10 +330,6 @@ export function generateReportHTML(
                 <div class="info-value">${venda.payment_method}</div>
               </div>
               <div class="info-row">
-                <div class="info-label">Status:</div>
-                <div class="info-value">${venda.status}</div>
-              </div>
-              <div class="info-row">
                 <div class="info-label">Tipo de Venda:</div>
                 <div class="info-value">${venda.sale_type}</div>
               </div>
