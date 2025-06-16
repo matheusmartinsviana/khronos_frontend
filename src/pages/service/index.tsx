@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -17,6 +19,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ServiceCardSkeleton } from "@/components/skeletons/service-card-skeleton"
+import { ServiceTableSkeleton } from "@/components/skeletons/service-table-skeleton"
 import {
     TrashIcon,
     PenIcon,
@@ -34,6 +39,8 @@ import {
     Save,
     FileText,
     Layers,
+    Grid3X3,
+    List,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -81,7 +88,7 @@ interface FilterState {
     sortBy: "name" | "price_asc" | "price_desc" | "newest"
 }
 
-// Mock API functions (replace with actual API calls)
+type ViewMode = "grid" | "table"
 
 export default function ServicosPage() {
     const [servicos, setServicos] = useState<Servico[]>([])
@@ -95,6 +102,7 @@ export default function ServicosPage() {
     const [editLoading, setEditLoading] = useState(false)
     const [createLoading, setCreateLoading] = useState(false)
     const [showFilters, setShowFilters] = useState(false)
+    const [viewMode, setViewMode] = useState<ViewMode>("grid")
 
     // Paginação
     const [currentPage, setCurrentPage] = useState(1)
@@ -233,6 +241,15 @@ export default function ServicosPage() {
         // Voltar para a primeira página quando os filtros mudam
         setCurrentPage(1)
     }, [filteredServicos, itemsPerPage])
+
+    // Ajustar itens por página baseado no modo de visualização
+    useEffect(() => {
+        if (viewMode === "table") {
+            setItemsPerPage(10) // Tabelas geralmente mostram mais itens
+        } else {
+            setItemsPerPage(9) // Grid mantém o padrão
+        }
+    }, [viewMode])
 
     const applyFilters = (services: Servico[], searchTerm: string, currentFilters: FilterState) => {
         let filtered = [...services]
@@ -407,6 +424,135 @@ export default function ServicosPage() {
 
     const currentPageItems = getCurrentPageItems()
 
+    // Renderizar skeleton baseado no modo de visualização
+    const renderSkeleton = () => {
+        if (viewMode === "grid") {
+            return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array.from({ length: itemsPerPage }).map((_, index) => (
+                        <ServiceCardSkeleton key={index} />
+                    ))}
+                </div>
+            )
+        } else {
+            return <ServiceTableSkeleton rows={itemsPerPage} />
+        }
+    }
+
+    // Renderizar serviços em grid
+    const renderGridView = () => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {currentPageItems.map((servico) => (
+                <Card key={servico.service_id} className="overflow-hidden">
+                    <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                                <CardTitle className="text-lg">{servico.name}</CardTitle>
+                                <CardDescription className="flex items-center">
+                                    <Tag className="h-3 w-3 mr-1" />
+                                    {servico.code || "Sem código"}
+                                </CardDescription>
+                            </div>
+                            <div className="text-lg font-bold text-red-700">{formatarPreco(servico.price)}</div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-2">
+                        <div className="space-y-2">
+                            <div className="text-sm text-gray-600 line-clamp-2">{servico.description || "Sem descrição"}</div>
+                            <div className="flex flex-wrap gap-2 text-xs">
+                                {servico.segment && (
+                                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">{servico.segment}</span>
+                                )}
+                                {servico.observation && (
+                                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">Com observações</span>
+                                )}
+                                {servico.zoning && (
+                                    <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full">Zona: {servico.zoning}</span>
+                                )}
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <Button variant="outline" size="sm" onClick={() => onEdit(servico.service_id)}>
+                                    <PenIcon className="h-4 w-4" />
+                                </Button>
+                                <Button variant="destructive" size="sm" onClick={() => handleOpenDeleteModal(servico.service_id)}>
+                                    <TrashIcon className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+    )
+
+    // Renderizar serviços em tabela
+    const renderTableView = () => (
+        <div className="rounded-md border">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[200px]">Serviço</TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead className="w-[120px]">Preço</TableHead>
+                        <TableHead className="w-[150px]">Segmento</TableHead>
+                        <TableHead className="w-[120px]">Observações</TableHead>
+                        <TableHead className="w-[100px]">Zoneamento</TableHead>
+                        <TableHead className="w-[100px]">Ações</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {currentPageItems.map((servico) => (
+                        <TableRow key={servico.service_id}>
+                            <TableCell>
+                                <div className="space-y-1">
+                                    <div className="font-medium">{servico.name}</div>
+                                    <div className="text-sm text-muted-foreground flex items-center">
+                                        <Tag className="h-3 w-3 mr-1" />
+                                        {servico.code || "Sem código"}
+                                    </div>
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <div className="max-w-[200px] truncate" title={servico.description || "Sem descrição"}>
+                                    {servico.description || "Sem descrição"}
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <div className="font-medium text-red-700">{formatarPreco(servico.price)}</div>
+                            </TableCell>
+                            <TableCell>{servico.segment && <Badge variant="secondary">{servico.segment}</Badge>}</TableCell>
+                            <TableCell>
+                                {servico.observation && (
+                                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                                        <FileText className="h-3 w-3 mr-1" />
+                                        Sim
+                                    </Badge>
+                                )}
+                            </TableCell>
+                            <TableCell>
+                                {servico.zoning && (
+                                    <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                                        {servico.zoning}
+                                    </Badge>
+                                )}
+                            </TableCell>
+                            <TableCell>
+                                <div className="flex gap-2">
+                                    <Button variant="outline" size="sm" onClick={() => onEdit(servico.service_id)}>
+                                        <PenIcon className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="destructive" size="sm" onClick={() => handleOpenDeleteModal(servico.service_id)}>
+                                        <TrashIcon className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    )
+
     return (
         <div className="container mx-auto px-4 py-6">
             <div className="flex flex-col gap-6">
@@ -458,15 +604,46 @@ export default function ServicosPage() {
                                 )}
                             </Button>
 
+                            {/* View Mode Toggle */}
+                            <div className="flex border rounded-md">
+                                <Button
+                                    variant={viewMode === "grid" ? "default" : "ghost"}
+                                    size="sm"
+                                    onClick={() => setViewMode("grid")}
+                                    className="rounded-r-none"
+                                >
+                                    <Grid3X3 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant={viewMode === "table" ? "default" : "ghost"}
+                                    size="sm"
+                                    onClick={() => setViewMode("table")}
+                                    className="rounded-l-none"
+                                >
+                                    <List className="h-4 w-4" />
+                                </Button>
+                            </div>
+
                             <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
-                                <SelectTrigger className="w-[120px]">
+                                <SelectTrigger className="w-[140px]">
                                     <SelectValue placeholder="Itens por página" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="6">6 por página</SelectItem>
-                                    <SelectItem value="9">9 por página</SelectItem>
-                                    <SelectItem value="12">12 por página</SelectItem>
-                                    <SelectItem value="24">24 por página</SelectItem>
+                                    {viewMode === "grid" ? (
+                                        <>
+                                            <SelectItem value="6">6 por página</SelectItem>
+                                            <SelectItem value="9">9 por página</SelectItem>
+                                            <SelectItem value="12">12 por página</SelectItem>
+                                            <SelectItem value="24">24 por página</SelectItem>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <SelectItem value="10">10 por página</SelectItem>
+                                            <SelectItem value="20">20 por página</SelectItem>
+                                            <SelectItem value="50">50 por página</SelectItem>
+                                            <SelectItem value="100">100 por página</SelectItem>
+                                        </>
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -610,19 +787,24 @@ export default function ServicosPage() {
                         </Card>
                     )}
 
-                    <div className="text-sm text-gray-600">
-                        {filteredServicos.length} serviço{filteredServicos.length !== 1 ? "s" : ""} encontrado
-                        {filteredServicos.length !== 1 ? "s" : ""}
-                        {totalPages > 1 && ` • Página ${currentPage} de ${totalPages}`}
+                    <div className="flex justify-between items-center text-sm text-gray-600">
+                        <div>
+                            {filteredServicos.length} serviço{filteredServicos.length !== 1 ? "s" : ""} encontrado
+                            {filteredServicos.length !== 1 ? "s" : ""}
+                            {totalPages > 1 && ` • Página ${currentPage} de ${totalPages}`}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs">Visualização:</span>
+                            <Badge variant="outline" className="text-xs">
+                                {viewMode === "grid" ? "Grid" : "Tabela"}
+                            </Badge>
+                        </div>
                     </div>
                 </div>
 
                 {/* Lista de Serviços */}
                 {loading ? (
-                    <div className="flex justify-center items-center py-12">
-                        <Loader2 className="animate-spin h-8 w-8 text-red-600" />
-                        <span className="ml-2 text-gray-600">Carregando serviços...</span>
-                    </div>
+                    renderSkeleton()
                 ) : filteredServicos.length === 0 ? (
                     <div className="text-center py-12">
                         <div className="text-gray-400 mb-4">
@@ -645,49 +827,7 @@ export default function ServicosPage() {
                     </div>
                 ) : (
                     <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {currentPageItems.map((servico) => (
-                                <Card key={servico.service_id} className="overflow-hidden">
-                                    <CardHeader className="pb-2">
-                                        <div className="flex justify-between items-start">
-                                            <div className="space-y-1">
-                                                <CardTitle className="text-lg">{servico.name}</CardTitle>
-                                                <CardDescription className="flex items-center">
-                                                    <Tag className="h-3 w-3 mr-1" />
-                                                    {servico.code || "Sem código"}
-                                                </CardDescription>
-                                            </div>
-                                            <div className="text-lg font-bold text-red-700">{formatarPreco(servico.price)}</div>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="pt-2">
-                                        <div className="space-y-2">
-                                            <div className="text-sm text-gray-600 line-clamp-2">{servico.description || "Sem descrição"}</div>
-                                            <div className="flex flex-wrap gap-2 text-xs">
-                                                {servico.segment && (
-                                                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">{servico.segment}</span>
-                                                )}
-                                                {servico.observation && (
-                                                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">Com observações</span>
-                                                )}
-                                            </div>
-                                            <div className="flex justify-end gap-2 pt-2">
-                                                <Button variant="outline" size="sm" onClick={() => onEdit(servico.service_id)}>
-                                                    <PenIcon className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    onClick={() => handleOpenDeleteModal(servico.service_id)}
-                                                >
-                                                    <TrashIcon className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
+                        {viewMode === "grid" ? renderGridView() : renderTableView()}
 
                         {/* Paginação */}
                         {totalPages > 1 && (

@@ -1,4 +1,4 @@
-
+"use client"
 
 import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
@@ -21,7 +21,10 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import ProductForm from "@/components/shared/ProductForm"
+import { ProductCardSkeleton } from "@/components/skeletons/product-card-skeleton"
+import { ProductTableSkeleton } from "@/components/skeletons/product-table-skeleton"
 import {
   TrashIcon,
   PenIcon,
@@ -36,6 +39,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   X,
+  Grid3X3,
+  List,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -54,6 +59,8 @@ interface FilterState {
   sortBy: "name" | "price_asc" | "price_desc" | "newest"
 }
 
+type ViewMode = "grid" | "table"
+
 export default function ProductsPage() {
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [categorias, setCategorias] = useState<Categoria[]>([])
@@ -67,6 +74,7 @@ export default function ProductsPage() {
   const [editLoading, setEditLoading] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>("grid")
 
   // Paginação
   const [currentPage, setCurrentPage] = useState(1)
@@ -171,6 +179,15 @@ export default function ProductsPage() {
     // Voltar para a primeira página quando os filtros mudam
     setCurrentPage(1)
   }, [filteredProdutos, itemsPerPage])
+
+  // Ajustar itens por página baseado no modo de visualização
+  useEffect(() => {
+    if (viewMode === "table") {
+      setItemsPerPage(10) // Tabelas geralmente mostram mais itens
+    } else {
+      setItemsPerPage(9) // Grid mantém o padrão
+    }
+  }, [viewMode])
 
   const applyFilters = (products: Produto[], searchTerm: string, currentFilters: FilterState) => {
     let filtered = [...products]
@@ -356,6 +373,132 @@ export default function ProductsPage() {
     ? categorias.filter((cat) => cat && typeof cat.id === "number" && cat.name)
     : []
 
+  // Renderizar skeleton baseado no modo de visualização
+  const renderSkeleton = () => {
+    if (viewMode === "grid") {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: itemsPerPage }).map((_, index) => (
+            <ProductCardSkeleton key={index} />
+          ))}
+        </div>
+      )
+    } else {
+      return <ProductTableSkeleton rows={itemsPerPage} />
+    }
+  }
+
+  // Renderizar produtos em grid
+  const renderGridView = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {currentPageItems.map((produto) => (
+        <Card key={produto.product_id} className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <CardTitle className="text-lg">{produto.name}</CardTitle>
+                <CardDescription className="flex items-center">
+                  <Tag className="h-3 w-3 mr-1" />
+                  {produto.code || "Sem código"}
+                </CardDescription>
+              </div>
+              <div className="text-lg font-bold text-red-700">{formatarPreco(produto.price)}</div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-2">
+            <div className="space-y-2">
+              <div className="text-sm text-gray-600 line-clamp-2">{produto.description || "Sem descrição"}</div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                {produto.product_type && (
+                  <span className="px-2 py-1 bg-gray-100 rounded-full">{produto.product_type}</span>
+                )}
+                {produto.category_id && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                    {getCategoryName(produto.category_id)}
+                  </span>
+                )}
+                {produto.zoning && (
+                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">Zona: {produto.zoning}</span>
+                )}
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => onEdit(produto.product_id)}>
+                  <PenIcon className="h-4 w-4" />
+                </Button>
+                <Button variant="destructive" size="sm" onClick={() => handleOpenDeleteModal(produto.product_id)}>
+                  <TrashIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+
+  // Renderizar produtos em tabela
+  const renderTableView = () => (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[200px]">Produto</TableHead>
+            <TableHead>Descrição</TableHead>
+            <TableHead className="w-[120px]">Preço</TableHead>
+            <TableHead className="w-[150px]">Categoria</TableHead>
+            <TableHead className="w-[100px]">Tipo</TableHead>
+            <TableHead className="w-[120px]">Zoneamento</TableHead>
+            <TableHead className="w-[100px]">Ações</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {currentPageItems.map((produto) => (
+            <TableRow key={produto.product_id}>
+              <TableCell>
+                <div className="space-y-1">
+                  <div className="font-medium">{produto.name}</div>
+                  <div className="text-sm text-muted-foreground flex items-center">
+                    <Tag className="h-3 w-3 mr-1" />
+                    {produto.code || "Sem código"}
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="max-w-[200px] truncate" title={produto.description || "Sem descrição"}>
+                  {produto.description || "Sem descrição"}
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="font-medium text-red-700">{formatarPreco(produto.price)}</div>
+              </TableCell>
+              <TableCell>
+                {produto.category_id && <Badge variant="secondary">{getCategoryName(produto.category_id)}</Badge>}
+              </TableCell>
+              <TableCell>{produto.product_type && <Badge variant="outline">{produto.product_type}</Badge>}</TableCell>
+              <TableCell>
+                {produto.zoning && (
+                  <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    {produto.zoning}
+                  </Badge>
+                )}
+              </TableCell>
+              <TableCell>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => onEdit(produto.product_id)}>
+                    <PenIcon className="h-4 w-4" />
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => handleOpenDeleteModal(produto.product_id)}>
+                    <TrashIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="flex flex-col gap-6">
@@ -411,15 +554,46 @@ export default function ProductsPage() {
                   )}
               </Button>
 
+              {/* View Mode Toggle */}
+              <div className="flex border rounded-md">
+                <Button
+                  variant={viewMode === "grid" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("grid")}
+                  className="rounded-r-none"
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "table" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("table")}
+                  className="rounded-l-none"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+
               <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Itens por página" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="6">6 por página</SelectItem>
-                  <SelectItem value="9">9 por página</SelectItem>
-                  <SelectItem value="12">12 por página</SelectItem>
-                  <SelectItem value="24">24 por página</SelectItem>
+                  {viewMode === "grid" ? (
+                    <>
+                      <SelectItem value="6">6 por página</SelectItem>
+                      <SelectItem value="9">9 por página</SelectItem>
+                      <SelectItem value="12">12 por página</SelectItem>
+                      <SelectItem value="24">24 por página</SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="10">10 por página</SelectItem>
+                      <SelectItem value="20">20 por página</SelectItem>
+                      <SelectItem value="50">50 por página</SelectItem>
+                      <SelectItem value="100">100 por página</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -598,19 +772,24 @@ export default function ProductsPage() {
             </Card>
           )}
 
-          <div className="text-sm text-gray-600">
-            {filteredProdutos.length} produto{filteredProdutos.length !== 1 ? "s" : ""} encontrado
-            {filteredProdutos.length !== 1 ? "s" : ""}
-            {totalPages > 1 && ` • Página ${currentPage} de ${totalPages}`}
+          <div className="flex justify-between items-center text-sm text-gray-600">
+            <div>
+              {filteredProdutos.length} produto{filteredProdutos.length !== 1 ? "s" : ""} encontrado
+              {filteredProdutos.length !== 1 ? "s" : ""}
+              {totalPages > 1 && ` • Página ${currentPage} de ${totalPages}`}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs">Visualização:</span>
+              <Badge variant="outline" className="text-xs">
+                {viewMode === "grid" ? "Grid" : "Tabela"}
+              </Badge>
+            </div>
           </div>
         </div>
 
         {/* Lista de Produtos */}
         {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="animate-spin h-8 w-8 text-red-600" />
-            <span className="ml-2 text-gray-600">Carregando produtos...</span>
-          </div>
+          renderSkeleton()
         ) : filteredProdutos.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
@@ -633,56 +812,7 @@ export default function ProductsPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {currentPageItems.map((produto) => (
-                <Card key={produto.product_id} className="overflow-hidden">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <CardTitle className="text-lg">{produto.name}</CardTitle>
-                        <CardDescription className="flex items-center">
-                          <Tag className="h-3 w-3 mr-1" />
-                          {produto.code || "Sem código"}
-                        </CardDescription>
-                      </div>
-                      <div className="text-lg font-bold text-red-700">{formatarPreco(produto.price)}</div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-2">
-                    <div className="space-y-2">
-                      <div className="text-sm text-gray-600 line-clamp-2">{produto.description || "Sem descrição"}</div>
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        {produto.product_type && (
-                          <span className="px-2 py-1 bg-gray-100 rounded-full">{produto.product_type}</span>
-                        )}
-                        {produto.category_id && (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
-                            {getCategoryName(produto.category_id)}
-                          </span>
-                        )}
-                        {produto.zoning && (
-                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">
-                            Zona: {produto.zoning}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex justify-end gap-2 pt-2">
-                        <Button variant="outline" size="sm" onClick={() => onEdit(produto.product_id)}>
-                          <PenIcon className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleOpenDeleteModal(produto.product_id)}
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            {viewMode === "grid" ? renderGridView() : renderTableView()}
 
             {/* Paginação */}
             {totalPages > 1 && (
