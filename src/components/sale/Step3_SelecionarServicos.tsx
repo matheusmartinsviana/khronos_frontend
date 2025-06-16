@@ -7,11 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Check, Loader2, Wrench, Grid, List } from 'lucide-react'
-import { Checkbox } from "@/components/ui/checkbox"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { ServicoSelecionado } from "@/types"
+import { Check, Wrench, Grid, List } from "lucide-react"
 
 // Tipos específicos para serviços
 interface Servico {
@@ -55,39 +52,54 @@ const ServicoCard = memo(
 
         return (
             <Card
-                className={`transition-all duration-200 h-full cursor-pointer ${isSelected ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-red-300 hover:shadow-md"
+                className={`transition-all duration-200 h-full cursor-pointer relative ${isSelected
+                    ? "border-red-700 bg-red-50 shadow-md ring-1 ring-red-200"
+                    : "border-gray-200 hover:border-red-300 hover:shadow-md bg-white"
                     }`}
                 onClick={onToggleSelect}
             >
+                {/* Selection indicator */}
+                {isSelected && (
+                    <div className="absolute top-2 right-2 bg-red-700 text-white rounded-full p-1">
+                        <Check className="w-3 h-3" />
+                    </div>
+                )}
+
                 <CardContent className="p-4 flex flex-col h-full">
                     <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-gray-800 line-clamp-2 flex-1">{servico.name || "Nome não disponível"}</h4>
-                        <Wrench className="w-4 h-4 text-red-600 ml-2 flex-shrink-0" />
+                        <h4 className="font-medium text-gray-800 line-clamp-2 flex-1 pr-2">
+                            {servico.name || "Nome não disponível"}
+                        </h4>
                     </div>
 
-                    <div className="space-y-1 mb-3">
+                    <div className="space-y-2 mb-3">
+                        <div className="flex items-center text-sm text-gray-600">
+                            <Wrench className="w-4 h-4 mr-1 flex-shrink-0" />
+                            <span className="truncate">{servico.product_type || "Serviço"}</span>
+                        </div>
+
                         {servico.code && <p className="text-xs text-gray-500">Código: {servico.code}</p>}
                         {servico.segment && <p className="text-sm text-blue-600 font-medium">{servico.segment}</p>}
                         {servico.description && <p className="text-xs text-gray-500 line-clamp-2">{servico.description}</p>}
                         {servico.observation && <p className="text-xs text-orange-600">⚠️ {servico.observation}</p>}
                     </div>
 
-                    <div className="mt-auto">
-                        <div className="text-red-700 font-bold text-lg mb-2">{formatarPreco(servico.price)}</div>
-                        <Badge
-                            variant={isSelected ? "outline" : "secondary"}
-                            className={`w-full justify-center py-1.5 ${isSelected ? "bg-green-100 text-green-800 hover:bg-green-100" : "hover:bg-red-50 hover:text-red-700"
+                    <div className="mt-auto space-y-3">
+                        <div className="text-red-700 font-bold text-lg">{formatarPreco(servico.price)}</div>
+
+                        <div
+                            className={`w-full text-center py-2 px-3 rounded-md text-sm font-medium transition-colors ${isSelected ? "bg-red-700 text-white" : "bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-700"
                                 }`}
                         >
                             {isSelected ? (
-                                <span className="flex items-center">
-                                    <Check className="w-3.5 h-3.5 mr-1" />
+                                <span className="flex items-center justify-center">
+                                    <Check className="w-4 h-4 mr-1" />
                                     Selecionado
                                 </span>
                             ) : (
                                 "Clique para selecionar"
                             )}
-                        </Badge>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -123,12 +135,12 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
 
                 // Garantir que todos os serviços tenham IDs válidos
                 const servicosData = Array.isArray(response.data)
-                    ? response.data.map(servico => ({
+                    ? response.data.map((servico) => ({
                         ...servico,
                         // Garantir que product_id seja um número válido
                         product_id: servico.product_id || servico.service_id || Math.floor(Math.random() * 100000),
                         // Adicionar service_id se não existir
-                        service_id: servico.service_id || servico.product_id
+                        service_id: servico.service_id || servico.product_id,
                     }))
                     : []
 
@@ -199,9 +211,7 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
         (servicoId: number) => {
             return (
                 Array.isArray(servicosSelecionados) &&
-                servicosSelecionados.some(
-                    (s) => s.product_id === servicoId || s.service_id === servicoId
-                )
+                servicosSelecionados.some((s) => s.product_id === servicoId || s.service_id === servicoId)
             )
         },
         [servicosSelecionados],
@@ -221,13 +231,13 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
             }
 
             // Marcar como em processamento
-            setServicosProcessados(prev => ({ ...prev, [processingKey]: true }))
+            setServicosProcessados((prev) => ({ ...prev, [processingKey]: true }))
 
             try {
                 if (isSelected) {
                     // Remover serviço (desselecionar)
                     const servicoSelecionado = servicosSelecionados.find(
-                        (s) => s.product_id === servico.product_id || s.service_id === servico.product_id
+                        (s) => s.product_id === servico.product_id || s.service_id === servico.product_id,
                     )
 
                     if (servicoSelecionado) {
@@ -258,7 +268,7 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
             } finally {
                 // Remover a marcação de processamento após um breve delay
                 setTimeout(() => {
-                    setServicosProcessados(prev => {
+                    setServicosProcessados((prev) => {
                         const newState = { ...prev }
                         delete newState[processingKey]
                         return newState
@@ -278,13 +288,10 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
 
     if (loading) {
         return (
-            <div className="p-6 w-full">
-                <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                    <Wrench className="w-6 h-6 text-red-600 mr-2" />
-                    Selecionar Serviços
-                </h2>
+            <div className="p-4 lg:p-6 w-full">
+                <h2 className="text-lg lg:text-xl font-semibold text-gray-800 mb-4">Selecionar Serviços</h2>
                 <div className="flex flex-col items-center justify-center text-gray-500 py-12">
-                    <Loader2 className="h-10 w-10 animate-spin mb-4 text-red-700" />
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-700 mx-auto mb-2"></div>
                     <p>Carregando serviços...</p>
                 </div>
             </div>
@@ -292,48 +299,23 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
     }
 
     return (
-        <div className="p-6 w-full">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800 flex items-center">
-                    <Wrench className="w-6 h-6 text-red-600 mr-2" />
-                    Selecionar Serviços
-                </h2>
-                <div className="flex items-center space-x-2">
-                    <Button
-                        variant={viewMode === "grid" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setViewMode("grid")}
-                        className={viewMode === "grid" ? "bg-red-700 hover:bg-red-800" : ""}
-                    >
-                        <Grid className="h-4 w-4 mr-1" />
-                        Grid
-                    </Button>
-                    <Button
-                        variant={viewMode === "table" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setViewMode("table")}
-                        className={viewMode === "table" ? "bg-red-700 hover:bg-red-800" : ""}
-                    >
-                        <List className="h-4 w-4 mr-1" />
-                        Tabela
-                    </Button>
-                </div>
-            </div>
+        <div className="p-4 lg:p-6 w-full">
+            <h2 className="text-lg lg:text-xl font-semibold text-gray-800 mb-4">Selecionar Serviços</h2>
 
-            <div className="flex flex-col lg:flex-row gap-4 mb-6">
-                <div className="flex-1">
+            {/* Filters and View Toggle */}
+            <div className="flex flex-col gap-3 sm:flex-row mb-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                     <Input
                         type="text"
                         placeholder="Pesquisar serviço..."
                         value={filtroNome}
                         onChange={(e) => setFiltroNome(e.target.value)}
-                        className="w-full"
+                        className="w-full sm:max-w-xs focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     />
-                </div>
-                <div className="lg:w-48">
+
                     <Select value={filtroSegmento} onValueChange={setFiltroSegmento}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Todos os segmentos" />
+                        <SelectTrigger className="w-full sm:w-48">
+                            <SelectValue placeholder="Segmento" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Todos os segmentos</SelectItem>
@@ -344,10 +326,9 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
                             ))}
                         </SelectContent>
                     </Select>
-                </div>
-                <div className="lg:w-48">
+
                     <Select value={filtroPreco} onValueChange={setFiltroPreco}>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full sm:w-48">
                             <SelectValue placeholder="Faixa de preço" />
                         </SelectTrigger>
                         <SelectContent>
@@ -359,21 +340,43 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
                         </SelectContent>
                     </Select>
                 </div>
+
+                {/* View Mode Toggle */}
+                <div className="flex items-center border border-gray-300 rounded w-full sm:w-auto mt-2 sm:mt-0">
+                    <button
+                        onClick={() => setViewMode("grid")}
+                        className={`p-2 transition-colors duration-200 flex-1 sm:flex-none ${viewMode === "grid" ? "bg-red-700 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                            }`}
+                        title="Visualização em Grid"
+                    >
+                        <Grid className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => setViewMode("table")}
+                        className={`p-2 transition-colors duration-200 flex-1 sm:flex-none ${viewMode === "table" ? "bg-red-700 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                            }`}
+                        title="Visualização em Tabela"
+                    >
+                        <List className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
 
             {servicosFiltrados.length === 0 ? (
-                <div className="text-center text-gray-500 py-12 bg-gray-50 rounded-lg">
-                    <Wrench className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <p>
-                        {filtroNome || filtroSegmento !== "all" || filtroPreco !== "all"
-                            ? "Nenhum serviço encontrado para os filtros aplicados."
-                            : "Nenhum serviço disponível."}
-                    </p>
+                <div className="text-center text-gray-400 py-8">
+                    {filtroNome || filtroSegmento !== "all" || filtroPreco !== "all"
+                        ? "Nenhum serviço encontrado para os filtros aplicados."
+                        : "Nenhum serviço disponível."}
                 </div>
             ) : (
-                <>
+                <div
+                    className={`${viewMode === "grid"
+                        ? "max-h-96 lg:max-h-[500px] overflow-y-auto pr-2"
+                        : "max-h-96 lg:max-h-[500px] overflow-auto"
+                        } w-full`}
+                >
                     {viewMode === "grid" ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {servicosPaginados.map((servico) => (
                                 <ServicoCard
                                     key={servico.product_id}
@@ -384,91 +387,108 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
                             ))}
                         </div>
                     ) : (
-                        <div className="border rounded-md overflow-hidden">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-12"></TableHead>
-                                        <TableHead>Nome</TableHead>
-                                        <TableHead className="hidden md:table-cell">Código</TableHead>
-                                        <TableHead className="hidden md:table-cell">Segmento</TableHead>
-                                        <TableHead className="text-right">Preço</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Seleção
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Nome
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Código
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                                            Segmento
+                                        </th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Preço
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
                                     {servicosPaginados.map((servico) => {
                                         const isSelected = isServicoJaSelecionado(servico.product_id)
                                         return (
-                                            <TableRow key={servico.product_id} className={isSelected ? "bg-green-50" : ""}>
-                                                <TableCell>
-                                                    <Checkbox
-                                                        checked={isSelected}
-                                                        onCheckedChange={() => handleToggleServico(servico)}
-                                                        className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-                                                    />
-                                                </TableCell>
-                                                <TableCell className="font-medium">
-                                                    <div className="flex items-center">
-                                                        <span>{servico.name || "Nome não disponível"}</span>
+                                            <tr
+                                                key={servico.product_id}
+                                                className={`cursor-pointer transition-colors duration-200 ${isSelected ? "bg-red-50 border-l-4 border-l-red-700" : "hover:bg-gray-50"
+                                                    }`}
+                                                onClick={() => handleToggleServico(servico)}
+                                            >
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <div className="flex items-center justify-center">
+                                                        {isSelected && <Check className="w-5 h-5 text-red-700" />}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <div className="text-sm font-medium text-gray-900">
+                                                        {servico.name || "Nome não disponível"}
                                                         {servico.observation && <span className="ml-2 text-xs text-orange-600">⚠️</span>}
                                                     </div>
-                                                </TableCell>
-                                                <TableCell className="hidden md:table-cell">{servico.code || "-"}</TableCell>
-                                                <TableCell className="hidden md:table-cell">
-                                                    {servico.segment ? (
-                                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                                                            {servico.segment}
-                                                        </span>
-                                                    ) : (
-                                                        "-"
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-right font-bold text-red-700">
-                                                    {formatarPreco(servico.price)}
-                                                </TableCell>
-                                            </TableRow>
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <div className="text-sm text-gray-600">{servico.code || "-"}</div>
+                                                </td>
+                                                <td className="px-4 py-3 hidden md:table-cell">
+                                                    <div className="text-sm text-gray-600 max-w-xs truncate">
+                                                        {servico.segment ? (
+                                                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                                                {servico.segment}
+                                                            </span>
+                                                        ) : (
+                                                            "-"
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-right">
+                                                    <div className="text-sm font-bold text-red-700">{formatarPreco(servico.price)}</div>
+                                                </td>
+                                            </tr>
                                         )
                                     })}
-                                </TableBody>
-                            </Table>
+                                </tbody>
+                            </table>
                         </div>
                     )}
-
-                    {totalPaginas > 1 && (
-                        <div className="flex justify-center items-center mt-6 gap-2">
-                            <Button
-                                variant="outline"
-                                onClick={() => setPaginaAtual((prev) => Math.max(prev - 1, 1))}
-                                disabled={paginaAtual === 1}
-                                size="sm"
-                            >
-                                Anterior
-                            </Button>
-                            <span className="px-4 py-2 text-gray-700 font-medium text-sm">
-                                Página {paginaAtual} de {totalPaginas}
-                            </span>
-                            <Button
-                                variant="outline"
-                                onClick={() => setPaginaAtual((prev) => (prev < totalPaginas ? prev + 1 : prev))}
-                                disabled={paginaAtual === totalPaginas}
-                                size="sm"
-                            >
-                                Próxima
-                            </Button>
-                        </div>
-                    )}
-                </>
+                </div>
             )}
 
+            {/* Pagination */}
+            {totalPaginas > 1 && (
+                <div className="flex justify-center items-center mt-6 gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={() => setPaginaAtual((prev) => Math.max(prev - 1, 1))}
+                        disabled={paginaAtual === 1}
+                        size="sm"
+                    >
+                        Anterior
+                    </Button>
+                    <span className="px-4 py-2 text-gray-700 font-medium text-sm">
+                        Página {paginaAtual} de {totalPaginas}
+                    </span>
+                    <Button
+                        variant="outline"
+                        onClick={() => setPaginaAtual((prev) => (prev < totalPaginas ? prev + 1 : prev))}
+                        disabled={paginaAtual === totalPaginas}
+                        size="sm"
+                    >
+                        Próxima
+                    </Button>
+                </div>
+            )}
+
+            {/* Selected Services Summary */}
             {Array.isArray(servicosSelecionados) && servicosSelecionados.length > 0 && (
-                <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center justify-center">
-                        <Check className="w-5 h-5 text-green-600 mr-2" />
-                        <strong className="text-green-800">
-                            {servicosSelecionados.length} serviço{servicosSelecionados.length !== 1 ? "s" : ""} selecionado
-                            {servicosSelecionados.length !== 1 ? "s" : ""}
-                        </strong>
-                    </div>
+                <div className="mt-4 p-3 rounded border border-green-300 bg-green-100 text-green-800 text-sm flex items-center">
+                    <Wrench className="w-4 h-4 mr-2 text-green-600 flex-shrink-0" />
+                    <span className="truncate">
+                        <strong>{servicosSelecionados.length}</strong> serviço{servicosSelecionados.length !== 1 ? "s" : ""}{" "}
+                        selecionado{servicosSelecionados.length !== 1 ? "s" : ""}
+                    </span>
                 </div>
             )}
         </div>
