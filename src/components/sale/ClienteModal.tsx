@@ -1,4 +1,4 @@
-
+"use client"
 
 import React from "react"
 import { useState } from "react"
@@ -6,6 +6,33 @@ import { createCustomer } from "@/api/customer-api"
 import type { Cliente } from "@/types"
 import { User, Mail, Phone, MapPin, FileText, Loader2 } from "lucide-react"
 import { Modal } from "../ui/modal"
+
+// Funções utilitárias para formatação
+const formatPhone = (value: string): string => {
+    // Remove tudo que não é dígito
+    const digits = value.replace(/\D/g, "")
+
+    // Aplica a máscara (XX) XXXXX-XXXX
+    if (digits.length <= 2) {
+        return digits
+    } else if (digits.length <= 7) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+    } else {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`
+    }
+}
+
+const formatCEP = (value: string): string => {
+    // Remove tudo que não é dígito
+    const digits = value.replace(/\D/g, "")
+
+    // Aplica a máscara XXXXX-XXX
+    if (digits.length <= 5) {
+        return digits
+    } else {
+        return `${digits.slice(0, 5)}-${digits.slice(5, 8)}`
+    }
+}
 
 interface ClienteModalProps {
     isOpen: boolean
@@ -43,7 +70,16 @@ const ClienteModal: React.FC<ClienteModalProps> = ({ isOpen, onClose, onSave, on
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target
-        setFormData((prev) => ({ ...prev, [name]: value }))
+        let formattedValue = value
+
+        // Aplicar formatação específica para cada campo
+        if (name === "contact") {
+            formattedValue = formatPhone(value)
+        } else if (name === "cep") {
+            formattedValue = formatCEP(value)
+        }
+
+        setFormData((prev) => ({ ...prev, [name]: formattedValue }))
 
         // Limpar erro do campo quando o usuário digitar
         if (errors[name]) {
@@ -58,7 +94,13 @@ const ClienteModal: React.FC<ClienteModalProps> = ({ isOpen, onClose, onSave, on
             newErrors.name = "Nome é obrigatório"
         }
 
-        if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+        if (!formData.contact.trim()) {
+            newErrors.contact = "Contato é obrigatório"
+        }
+
+        if (!formData.email.trim()) {
+            newErrors.email = "Email é obrigatório"
+        } else if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
             newErrors.email = "Email inválido"
         }
 
@@ -74,7 +116,15 @@ const ClienteModal: React.FC<ClienteModalProps> = ({ isOpen, onClose, onSave, on
         setLoading(true)
 
         try {
-            const response = await createCustomer(formData)
+            // Preparar dados para envio - remover formatação e converter email para minúsculo
+            const dataToSend = {
+                ...formData,
+                contact: formData.contact.replace(/\D/g, ""), // Remove tudo que não é número
+                cep: formData.cep.replace(/\D/g, ""), // Remove tudo que não é número
+                email: formData.email.toLowerCase().trim(), // Converte para minúsculo
+            }
+
+            const response = await createCustomer(dataToSend)
 
             if (response.data) {
                 const novoCliente: Cliente = {
@@ -181,7 +231,11 @@ const ClienteModal: React.FC<ClienteModalProps> = ({ isOpen, onClose, onSave, on
                             name="contact"
                             value={formData.contact}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 focus:border-red-500 transition-all duration-200"
+                            maxLength={15}
+                            className={`w-full px-4 py-3 border rounded-lg text-sm transition-all duration-200 ${errors.contact
+                                ? "border-red-500 bg-red-50 focus:ring-red-500"
+                                : "border-gray-300 focus:border-red-500 focus:ring-red-500"
+                                } focus:outline-none focus:ring-2 focus:ring-opacity-50`}
                             placeholder="(00) 00000-0000"
                         />
                     </div>
@@ -216,7 +270,11 @@ const ClienteModal: React.FC<ClienteModalProps> = ({ isOpen, onClose, onSave, on
                             name="cep"
                             value={formData.cep}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 focus:border-red-500 transition-all duration-200"
+                            maxLength={9}
+                            className={`w-full px-4 py-3 border rounded-lg text-sm transition-all duration-200 ${errors.cep
+                                ? "border-red-500 bg-red-50 focus:ring-red-500"
+                                : "border-gray-300 focus:border-red-500 focus:ring-red-500"
+                                } focus:outline-none focus:ring-2 focus:ring-opacity-50 focus:border-red-500 transition-all duration-200`}
                             placeholder="00000-000"
                         />
                     </div>
