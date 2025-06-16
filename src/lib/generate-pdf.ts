@@ -411,7 +411,7 @@ export async function downloadPDF(venda: VendaParaPDF): Promise<void> {
       pdf.setFont("helvetica", "normal")
       pdf.setFontSize(8)
 
-      venda.servicos.forEach((servico) => {
+      venda?.servicos?.forEach((servico) => {
         checkPageBreak(8)
         xPos = margin
 
@@ -422,10 +422,10 @@ export async function downloadPDF(venda: VendaParaPDF): Promise<void> {
         pdf.text(descLines, xPos + 2, yPosition)
         xPos += colWidths[1]
 
-        pdf.text(servico.quantidade.toString(), xPos + 2, yPosition)
+        pdf?.text(servico?.quantidade?.toString(), xPos + 2, yPosition)
         xPos += colWidths[2]
 
-        pdf.text(servico.preco.toFixed(2), xPos + 2, yPosition)
+        pdf?.text(servico?.preco?.toFixed(2), xPos + 2, yPosition)
 
         yPosition += Math.max(descLines.length * 3, 6)
       })
@@ -649,6 +649,31 @@ export function convertVendaForPDF(
   zoneamento?: string,
   senhas?: { senha?: string; contraSenha?: string; palavraCoacao?: string },
 ): VendaParaPDF {
+  // Separe produtos e serviços conforme a categoria
+  const produtosList: VendaParaPDF["produtos"] = []
+  const servicosList: VendaParaPDF["servicos"] = [...servicos]
+
+  produtos.forEach((p) => {
+    const categoria = p.product_type || (p as any).categoria || "N/A"
+    if (categoria.trim().toUpperCase() === "SERVIÇOS" || categoria.trim().toUpperCase() === "SERVICO" || categoria.trim().toUpperCase() === "SERVIÇO") {
+      servicosList.push({
+        codigo: (p as any).codigo ?? undefined,
+        nome: p.name,
+        quantidade: (p as any).quantidade ?? (p as any).quantity ?? 1,
+        preco: p.price,
+      })
+    } else {
+      produtosList.push({
+        codigo: (p as any).codigo ?? undefined,
+        nome: p.name,
+        categoria,
+        quantidade: (p as any).quantidade ?? (p as any).quantity ?? 1,
+        preco: p.price,
+        zoneamento: (p as any).zoneamento ?? (p as any).zoning ?? "",
+      })
+    }
+  })
+
   return {
     id: (venda as any).sale_id ?? venda.id ?? 0,
     data: venda.date,
@@ -664,15 +689,8 @@ export function convertVendaForPDF(
       cidade: cliente.cidade,
       estado: cliente.estado,
     },
-    produtos: produtos.map((p) => ({
-      codigo: (p as any).codigo ?? undefined,
-      nome: p.name,
-      categoria: p.product_type || "N/A",
-      quantidade: (p as any).quantidade ?? (p as any).quantity ?? 1,
-      preco: p.price,
-      zoneamento: (p as any).zoneamento ?? (p as any).zoning ?? "",
-    })),
-    servicos: servicos,
+    produtos: produtosList,
+    servicos: servicosList,
     total: venda.amount,
     metodoPagamento: venda.payment_method || "dinheiro",
     vendedor: {

@@ -404,6 +404,7 @@ export default function SalesPage() {
 
         // Usar a função utilitária para converter os dados
         const vendaParaPDF = convertVendaForPDF(vendaFinalizada, clienteSelecionado, todosItens, user)
+        console.log("Dados para PDF:", vendaParaPDF)
 
         // Garantir que metodoPagamento não seja undefined
         if (!vendaParaPDF.metodoPagamento) {
