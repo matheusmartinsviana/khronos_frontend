@@ -48,7 +48,51 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                 setLoading(true)
                 const response = await getSalesByUser(user.user_id)
                 console.log("Vendas recebidas do backend:", response.data)
-                const vendasData = Array.isArray(response.data) ? response.data : []
+                const vendasData = response.data
+                /*
+                    "sale_id": 68,
+        "amount": 1237.21,
+        "sale_type": "venda",
+        "date": "2025-06-16T10:55:13.203Z",
+        "payment_method": "dinheiro",
+        "ProductSales": [
+            {cc
+                "product_sale_id": 186,
+                "product_price": 1200,
+                "total_sales": 1200,
+                "quantity": 1,
+                "zoning": null,
+                "Product": {
+                    "product_id": 2,
+                    "name": "ACIONADOR DE ACESSO EMERGENCIA - VERDE",
+                    "price": 99.9,
+                    "description": "sdadasdsa",
+                    "image": null
+                },
+                "Service": {
+                    "service_id": 2,
+                    "name": "Mão de obra x",
+                    "price": 1200,
+                    "description": "instalção de camera??"
+                }
+            },
+            {
+                "product_sale_id": 185,
+                "product_price": 37.21,
+                "total_sales": 37,
+                "quantity": 1,
+                "zoning": null,
+                "Product": {
+                    "product_id": 42,
+                    "name": "BATERIA 9V",
+                    "price": 37.21,
+                    "description": null,
+                    "image": null
+                },
+                "Service": null
+            }
+        ],
+                */
 
                 if (vendasData.length === 0) {
                     setVendas([])
@@ -61,24 +105,33 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                     return
                 }
 
-                // Mapear os dados do backend para o formato esperado pelo frontend
                 const vendasMapeadas: Venda[] = vendasData.map((venda: any) => {
-                    // Mapear produtos e serviços corretamente
-                    const produtosEServicos = Array.isArray(venda.ProductSales)
-                        ? venda.ProductSales.map((ps: any) => ({
+                    // Mapear produtos e serviços separadamente
+                    const produtos = Array.isArray(venda.ProductSales)
+                        ? venda.ProductSales.filter((ps: any) => ps.Product).map((ps: any) => ({
                             product_sale_id: ps.product_sale_id,
-                            product_id: ps.Product?.product_id || ps.product_id,
-                            service_id: ps.Service?.service_id || ps.service_id,
-                            name: ps.Product?.name || ps.Service?.name || "Produto/Serviço",
-                            price: ps.product_price || 0,
-                            quantity: ps.quantity || ps.total_sales || 1,
-                            quantidade: ps.quantity || ps.total_sales || 1,
-                            total_sales: ps.total_sales || ps.quantity || 1,
-                            total: (ps.product_price || 0) * (ps.total_sales || ps.quantity || 1),
-                            product_type: ps.Product?.product_type || ps.Service?.product_type || "",
-                            isService: !!ps.Service?.service_id,
+                            product_id: ps.Product.product_id,
+                            name: ps.Product.name,
+                            price: ps.product_price || ps.Product.price || 0,
+                            quantity: ps.quantity || 1,
+                            total_sales: ps.total_sales || (ps.product_price * (ps.quantity || 1)) || 0,
+                            isService: false,
+                            zoning: ps.zoning
                         }))
-                        : []
+                        : [];
+
+                    const servicos = Array.isArray(venda.ServiceSales)
+                        ? venda.ServiceSales.filter((ss: any) => ss.Service).map((ss: any) => ({
+                            service_sale_id: ss.service_sale_id,
+                            service_id: ss.Service.service_id,
+                            name: ss.Service.name,
+                            price: ss.service_price || ss.Service.price || 0,
+                            quantity: ss.quantity || 1,
+                            total_sales: ss.total_sales || (ss.service_price * (ss.quantity || 1)) || 0,
+                            isService: true,
+                            zoning: ss.zoning
+                        }))
+                        : [];
 
                     return {
                         sale_id: venda.sale_id,
@@ -86,7 +139,8 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                         customer_id: venda.Customer?.customer_id || venda.customer_id,
                         customer_name: venda.Customer?.name || "Cliente",
                         customer_email: venda.Customer?.email || "",
-                        products: produtosEServicos,
+                        products: produtos,
+                        services: servicos,
                         payment_method: venda.payment_method || "não informado",
                         total: venda.amount || 0,
                         amount: venda.amount || 0,
@@ -95,8 +149,8 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                         date: venda.date || new Date().toISOString(),
                         observacoes: venda.observation || venda.observacoes || "",
                         seller_email: venda.Salesperson?.User?.email || user.email,
-                    }
-                })
+                    };
+                });
 
                 const vendasOrdenadas = vendasMapeadas.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
@@ -220,7 +274,14 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                 zoneamento: produto.zoneamento || "",
             }))
 
-            const vendaParaPDF = convertVendaForPDF(venda, cliente, produtosFormatados, user)
+            // Adicionar serviços, se existirem
+            const servicosFormatados = venda.services.map((servico) => ({
+                ...servico,
+                quantidade: servico.quantidade || servico.total_sales || 1,
+                zoneamento: servico.zoneamento || "",
+            }))
+
+            const vendaParaPDF = convertVendaForPDF(venda, cliente, [...produtosFormatados, ...servicosFormatados], user)
             downloadPDF(vendaParaPDF)
             onShowNotification("success", "Relatório gerado e baixado com sucesso!")
         } catch (error) {
@@ -229,14 +290,6 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
         } finally {
             setGerandoRelatorio(null)
         }
-    }
-
-    // Função para contar produtos e serviços separadamente
-    const contarProdutosEServicos = (produtos: ProdutoSelecionado[]) => {
-        const produtosCount = produtos.filter((p) => !p.isService).length
-        const servicosCount = produtos.filter((p) => p.isService).length
-
-        return { produtosCount, servicosCount }
     }
 
     return (
@@ -363,10 +416,14 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {vendas.map((venda) => {
-                                            const { produtosCount, servicosCount } = contarProdutosEServicos(venda.products || [])
+                                            // Conta produtos e serviços, se quiser continuar usando
+                                            const produtosCount = venda.products ? venda.products.length : 0;
+                                            const servicosCount = venda.services ? venda.services.length : 0;
+
                                             return (
                                                 <tr key={venda.sale_id} className="hover:bg-gray-50">
                                                     <td className="px-6 py-4">
+                                                        {/* Cliente e data */}
                                                         <div className="flex items-center gap-3">
                                                             <div className="flex-shrink-0">
                                                                 <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
@@ -384,30 +441,63 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                                             </div>
                                                         </div>
                                                     </td>
+
                                                     <td className="px-6 py-4">
+                                                        {/* Quantidade de produtos e serviços */}
                                                         <div className="flex flex-col gap-1">
                                                             <div className="text-sm text-gray-900 flex items-center gap-2">
-                                                                {produtosCount > 0 && (
+                                                                {venda.products.length > 0 && (
                                                                     <span className="flex items-center gap-1">
                                                                         <Package className="w-3 h-3 text-blue-600" />
-                                                                        {produtosCount} produto{produtosCount !== 1 ? "s" : ""}
+                                                                        {venda.products.length} produto{venda.products.length !== 1 ? "s" : ""}
                                                                     </span>
                                                                 )}
-                                                                {servicosCount > 0 && (
+                                                                {venda.services.length > 0 && (
                                                                     <span className="flex items-center gap-1">
                                                                         <Wrench className="w-3 h-3 text-green-600" />
-                                                                        {servicosCount} serviço{servicosCount !== 1 ? "s" : ""}
+                                                                        {venda.services.length} serviço{venda.services.length !== 1 ? "s" : ""}
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            {venda.products && venda.products.length > 0 && (
-                                                                <div className="text-sm text-gray-500 truncate max-w-[200px]">
-                                                                    {venda.products[0].name}
-                                                                    {venda.products.length > 1 && "..."}
+
+                                                            {/* Lista produtos */}
+                                                            {venda.products.length > 0 && (
+                                                                <div className="text-sm text-gray-500 max-w-[200px]">
+                                                                    <div><strong>Produtos:</strong></div>
+                                                                    <ul>
+                                                                        {venda.products.slice(0, 3).map((produto, idx) => (
+                                                                            <li key={idx} className="truncate">
+                                                                                {produto.name}
+                                                                                {idx < venda.products.length - 1 ? "," : ""}
+                                                                            </li>
+                                                                        ))}
+                                                                        {venda.products.length > 3 && (
+                                                                            <li className="text-gray-400">+{venda.products.length - 3} mais...</li>
+                                                                        )}
+                                                                    </ul>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Lista serviços */}
+                                                            {venda.services.length > 0 && (
+                                                                <div className="text-sm text-gray-500 max-w-[200px] mt-1">
+                                                                    <div><strong>Serviços:</strong></div>
+                                                                    <ul>
+                                                                        {venda.services.slice(0, 3).map((servico, idx) => (
+                                                                            <li key={idx} className="truncate">
+                                                                                {servico.name}
+                                                                                {idx < venda.services.length - 1 ? "," : ""}
+                                                                            </li>
+                                                                        ))}
+                                                                        {venda.services.length > 3 && (
+                                                                            <li className="text-gray-400">+{venda.services.length - 3} mais...</li>
+                                                                        )}
+                                                                    </ul>
                                                                 </div>
                                                             )}
                                                         </div>
                                                     </td>
+
                                                     <td className="px-6 py-4">
                                                         <div className="text-sm font-medium text-gray-900">{formatarPreco(venda.total)}</div>
                                                         <div className="text-sm text-gray-500 flex items-center gap-1">
@@ -415,21 +505,19 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                                             {getPaymentMethodLabel(venda.payment_method)}
                                                         </div>
                                                     </td>
+
                                                     <td className="px-6 py-4">
                                                         <span
-                                                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
-                                                                venda.status,
-                                                            )}`}
+                                                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(venda.status)}`}
                                                         >
                                                             {venda.status || "Concluída"}
                                                         </span>
                                                     </td>
+
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-2">
                                                             <button
-                                                                onClick={() =>
-                                                                    setVendaExpandida(vendaExpandida === venda.sale_id ? null : venda.sale_id)
-                                                                }
+                                                                onClick={() => setVendaExpandida(vendaExpandida === venda.sale_id ? null : venda.sale_id)}
                                                                 className="text-gray-400 hover:text-gray-600 transition-colors"
                                                                 title="Ver detalhes"
                                                             >
@@ -450,7 +538,7 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                                         </div>
                                                     </td>
                                                 </tr>
-                                            )
+                                            );
                                         })}
                                     </tbody>
                                 </table>
@@ -459,7 +547,8 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                             {/* Mobile Cards */}
                             <div className="lg:hidden divide-y divide-gray-200">
                                 {vendas.map((venda) => {
-                                    const { produtosCount, servicosCount } = contarProdutosEServicos(venda.products || [])
+                                    const productCount = venda.products ? venda.products.length : 0
+                                    const serviceCount = venda.services ? venda.services.length : 0
                                     return (
                                         <div key={venda.sale_id} className="p-4">
                                             <div className="flex justify-between items-start mb-3">
@@ -491,16 +580,16 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
 
                                             <div className="flex justify-between items-center mb-3">
                                                 <div className="flex items-center gap-4 text-xs text-gray-500">
-                                                    {produtosCount > 0 && (
+                                                    {productCount > 0 && (
                                                         <span className="flex items-center gap-1">
                                                             <Package className="w-3 h-3 text-blue-600" />
-                                                            {produtosCount}
+                                                            {productCount}
                                                         </span>
                                                     )}
-                                                    {servicosCount > 0 && (
+                                                    {serviceCount > 0 && (
                                                         <span className="flex items-center gap-1">
                                                             <Wrench className="w-3 h-3 text-green-600" />
-                                                            {servicosCount}
+                                                            {serviceCount}
                                                         </span>
                                                     )}
                                                     <span className="flex items-center gap-1">
@@ -566,32 +655,57 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                                                             <span className="font-medium text-gray-700">Data completa:</span>
                                                             <span className="text-gray-600 ml-1">{formatarData(venda.date)}</span>
                                                         </div>
-                                                        {venda.products && venda.products.length > 0 && (
-                                                            <div className="text-xs">
-                                                                <span className="font-medium text-gray-700">Itens:</span>
-                                                                <div className="ml-1 mt-1 space-y-1">
-                                                                    {venda.products.slice(0, 3).map((product, index) => (
-                                                                        <div key={index} className="text-gray-600 flex justify-between">
-                                                                            <div className="flex-1 truncate mr-2">
-                                                                                <span className="flex items-center gap-1">
-                                                                                    {product.isService ? (
-                                                                                        <Wrench className="w-2 h-2 text-green-600" />
-                                                                                    ) : (
-                                                                                        <Package className="w-2 h-2 text-blue-600" />
-                                                                                    )}
-                                                                                    {product.name || `Item ${product.product_id || product.service_id}`}
-                                                                                    <span className="text-gray-400 ml-1">
-                                                                                        x{product.quantity || product.total_sales || 1}
-                                                                                    </span>
-                                                                                </span>
-                                                                            </div>
-                                                                            <span>{formatarPreco(product.price || 0)}</span>
+                                                        {(venda.products?.length > 0 || venda.services?.length > 0) && (
+                                                            <div className="text-xs space-y-2">
+                                                                {venda.products?.length > 0 && (
+                                                                    <div>
+                                                                        <span className="font-medium text-gray-700">Produtos:</span>
+                                                                        <div className="ml-1 mt-1 space-y-1">
+                                                                            {venda.products.slice(0, 3).map((product, index) => (
+                                                                                <div key={index} className="text-gray-600 flex justify-between">
+                                                                                    <div className="flex-1 truncate mr-2">
+                                                                                        <span className="flex items-center gap-1">
+                                                                                            <Package className="w-2 h-2 text-blue-600" />
+                                                                                            {product.name || `Produto ${product.product_id}`}
+                                                                                            <span className="text-gray-400 ml-1">
+                                                                                                x{product.quantity || product.total_sales || 1}
+                                                                                            </span>
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <span>{formatarPreco(product.price || 0)}</span>
+                                                                                </div>
+                                                                            ))}
+                                                                            {venda.products.length > 3 && (
+                                                                                <div className="text-gray-500 italic">+{venda.products.length - 3} mais...</div>
+                                                                            )}
                                                                         </div>
-                                                                    ))}
-                                                                    {venda.products.length > 3 && (
-                                                                        <div className="text-gray-500 italic">+{venda.products.length - 3} mais...</div>
-                                                                    )}
-                                                                </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {venda.services?.length > 0 && (
+                                                                    <div>
+                                                                        <span className="font-medium text-gray-700">Serviços:</span>
+                                                                        <div className="ml-1 mt-1 space-y-1">
+                                                                            {venda.services.slice(0, 3).map((service, index) => (
+                                                                                <div key={index} className="text-gray-600 flex justify-between">
+                                                                                    <div className="flex-1 truncate mr-2">
+                                                                                        <span className="flex items-center gap-1">
+                                                                                            <Wrench className="w-2 h-2 text-green-600" />
+                                                                                            {service.name || `Serviço ${service.service_id}`}
+                                                                                            <span className="text-gray-400 ml-1">
+                                                                                                x{service.quantity || service.total_sales || 1}
+                                                                                            </span>
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <span>{formatarPreco(service.price || 0)}</span>
+                                                                                </div>
+                                                                            ))}
+                                                                            {venda.services.length > 3 && (
+                                                                                <div className="text-gray-500 italic">+{venda.services.length - 3} mais...</div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </div>

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useTransition, useEffect } from "react"
 import type { Cliente, ProdutoSelecionado, ServicoSelecionado, Venda, NotificationState } from "@/types"
-import { downloadPDF, openPDFInNewTab, convertVendaForPDF } from "@/lib/generate-pdf"
+import { downloadPDF, convertVendaForPDF } from "@/lib/generate-pdf"
 import { generateReportHTML, prepareEmailData } from "@/lib/email-utils"
 import { sendEmail, type EmailData } from "@/api/email"
 import { FileText, Home, Plus, ArrowLeft, Menu, Mail } from "lucide-react"
@@ -395,46 +395,30 @@ export default function SalesPage() {
   }, [clearDraft, showNotification])
 
   const handleGerarPDF = useCallback(() => {
-    if (!vendaFinalizada || !clienteSelecionado || !user) return
+    if (!vendaFinalizada || !clienteSelecionado || !user) return;
 
     startTransition(() => {
       try {
         // Combinar produtos e serviços para o PDF
-        const todosItens = [...produtosSelecionados, ...servicosSelecionados]
+        const todosItens = [...produtosSelecionados, ...servicosSelecionados];
 
         // Usar a função utilitária para converter os dados
-        const vendaParaPDF = convertVendaForPDF(vendaFinalizada, clienteSelecionado, todosItens, user)
-        console.log("Dados para PDF:", vendaParaPDF)
+        const vendaParaPDF = convertVendaForPDF(vendaFinalizada, clienteSelecionado, todosItens, user);
+        console.log("Dados para PDF:", vendaParaPDF);
 
         // Garantir que metodoPagamento não seja undefined
         if (!vendaParaPDF.metodoPagamento) {
-          vendaParaPDF.metodoPagamento = "dinheiro"
+          vendaParaPDF.metodoPagamento = "dinheiro";
         }
 
-        downloadPDF(vendaParaPDF)
-        showNotification("success", "Relatório gerado e baixado com sucesso!")
+        downloadPDF(vendaParaPDF);
+        showNotification("success", "Relatório gerado e baixado com sucesso!");
       } catch (error) {
-        console.error("Erro ao gerar relatório:", error)
-        showNotification("error", "Erro ao gerar o relatório. Tente novamente.")
+        console.error("Erro ao gerar relatório:", error);
+        showNotification("error", "Erro ao gerar o relatório. Tente novamente.");
       }
-    })
-  }, [vendaFinalizada, clienteSelecionado, produtosSelecionados, servicosSelecionados, user, showNotification])
-
-  const handleVisualizarPDF = useCallback(() => {
-    if (!vendaFinalizada || !clienteSelecionado || !user) return
-
-    try {
-      // Combinar produtos e serviços para o PDF
-      const todosItens = [...produtosSelecionados, ...servicosSelecionados]
-
-      // Usar a função utilitária para converter os dados
-      const vendaParaPDF = convertVendaForPDF(vendaFinalizada, clienteSelecionado, todosItens, user)
-      openPDFInNewTab(vendaParaPDF)
-    } catch (error) {
-      console.error("Erro ao visualizar relatório:", error)
-      showNotification("error", "Erro ao visualizar o relatório.")
-    }
-  }, [vendaFinalizada, clienteSelecionado, produtosSelecionados, servicosSelecionados, user, showNotification])
+    });
+  }, [vendaFinalizada, clienteSelecionado, produtosSelecionados, servicosSelecionados, user, showNotification]);
 
   // Efeito para debug
   useEffect(() => {

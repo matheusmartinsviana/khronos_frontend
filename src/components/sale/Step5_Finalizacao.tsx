@@ -8,7 +8,7 @@ import { verifyUserSalesperson } from "@/api/user"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FileText, Check, AlertCircle, Loader2, ExternalLink, Package, Wrench, CreditCard } from "lucide-react"
-import { downloadPDF, openPDFInNewTab, convertVendaForPDF } from "@/lib/generate-pdf"
+import { downloadPDF, convertVendaForPDF } from "@/lib/generate-pdf"
 import { useUser } from "@/context/UserContext"
 import { api } from "@/api"
 
@@ -165,21 +165,8 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
       const payload = {
         seller_id: vendedor.seller_id,
         customer_id: cliente.customer_id,
-        products: todosItens.map((item) => {
-          const preco = typeof item.price === "number" && !isNaN(item.price) ? item.price : 0
-          const quantidade = typeof item.quantidade === "number" && !isNaN(item.quantidade) ? item.quantidade : 1
-          const subtotal = preco * quantidade
-
-          return {
-            product_id: item.product_id,
-            service_id: item.service_id,
-            quantity: quantidade,
-            price: Number(preco.toFixed(2)),
-            product_price: Number(preco.toFixed(2)),
-            total_sales: Number(subtotal.toFixed(2)),
-            zoneamento: item.zoneamento || "",
-          }
-        }),
+        produtos,
+        servicos,
         payment_method: paymentMethodString,
         installments: numeroParcelas,
         installment_value: Number(valorParcela.toFixed(2)),
@@ -189,7 +176,7 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
         status: "concluida",
         date: new Date().toISOString(),
         observation: observacoes.trim() || undefined,
-      }
+      };
 
       return payload
     } catch (error) {
@@ -301,18 +288,6 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
       onShowNotification?.("error", "Erro ao gerar o relatório. Tente novamente.")
     } finally {
       setGerando(false)
-    }
-  }
-
-  const handleVisualizarPDF = () => {
-    if (!vendaFinalizada) return
-
-    try {
-      const vendaParaPDF = convertVendaForPDF(vendaFinalizada, cliente, todosItens, user!)
-      openPDFInNewTab(vendaParaPDF)
-    } catch (error) {
-      console.error("Erro ao visualizar relatório:", error)
-      onShowNotification?.("error", "Erro ao visualizar o relatório.")
     }
   }
 
@@ -443,9 +418,8 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
                           </td>
                           <td className="px-2 lg:px-4 py-2 lg:py-3">
                             <span
-                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                isProduto ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
-                              }`}
+                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${isProduto ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+                                }`}
                             >
                               {isProduto ? "Produto" : "Serviço"}
                             </span>
@@ -501,11 +475,10 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
                 {metodoPagamentoOptions.map((option) => (
                   <label
                     key={option.value}
-                    className={`flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${
-                      metodoPagamento === option.value
-                        ? "border-red-500 bg-red-50 text-red-700 shadow-md"
-                        : "border-gray-300 bg-white hover:border-gray-400"
-                    }`}
+                    className={`flex flex-col items-center justify-center p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${metodoPagamento === option.value
+                      ? "border-red-500 bg-red-50 text-red-700 shadow-md"
+                      : "border-gray-300 bg-white hover:border-gray-400"
+                      }`}
                   >
                     <input
                       type="radio"
@@ -658,19 +631,18 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
             {/* Mensagem de Status */}
             {mensagem && (
               <div
-                className={`p-4 rounded-lg border ${
-                  mensagem.includes("Erro") || mensagem.includes("inválido") || mensagem.includes("Falha")
-                    ? "bg-red-50 border-red-200 text-red-800"
-                    : mensagem.includes("Tentativa") || mensagem.includes("Preparando") || mensagem.includes("Enviando")
-                      ? "bg-blue-50 border-blue-200 text-blue-800"
-                      : "bg-green-50 border-green-200 text-green-800"
-                }`}
+                className={`p-4 rounded-lg border ${mensagem.includes("Erro") || mensagem.includes("inválido") || mensagem.includes("Falha")
+                  ? "bg-red-50 border-red-200 text-red-800"
+                  : mensagem.includes("Tentativa") || mensagem.includes("Preparando") || mensagem.includes("Enviando")
+                    ? "bg-blue-50 border-blue-200 text-blue-800"
+                    : "bg-green-50 border-green-200 text-green-800"
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   {mensagem.includes("Erro") ||
-                  mensagem.includes("inválido") ||
-                  mensagem.includes("Falha") ||
-                  mensagem.includes("Failed") ? (
+                    mensagem.includes("inválido") ||
+                    mensagem.includes("Falha") ||
+                    mensagem.includes("Failed") ? (
                     <AlertCircle className="w-5 h-5" />
                   ) : mensagem.includes("Tentativa") ||
                     mensagem.includes("Preparando") ||
@@ -731,15 +703,6 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
                         Baixar Relatório
                       </>
                     )}
-                  </Button>
-
-                  <Button
-                    onClick={handleVisualizarPDF}
-                    className="w-full py-4 lg:py-6 bg-green-600 hover:bg-green-700 text-white text-sm lg:text-base"
-                    size="lg"
-                  >
-                    <ExternalLink className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
-                    Visualizar
                   </Button>
                 </div>
               )}

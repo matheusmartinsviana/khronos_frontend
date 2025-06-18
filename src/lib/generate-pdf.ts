@@ -32,52 +32,64 @@ export interface User {
   telefone?: string
   email?: string
 }
+export interface VendaFromBackend {
+  sale_id: number;
+  amount: number;
+  sale_type: string;
+  date: string;
+  payment_method: string;
+  ProductSales: ProductSale[];
+  ServiceSales: ServiceSale[];
+  Salesperson: Salesperson;
+  Customer: Cliente;
+  observation?: string;
+}
 
-// Interface para o formato de dados esperado pelo gerador de PDF
-interface VendaParaPDF {
-  id: number
-  data: string
-  proposta?: string
-  contrato?: string
-  cliente: {
-    nome: string
-    codigo?: string
-    cpf?: string
-    cnpj?: string
-    telefone?: string
-    email?: string
-    endereco?: string
-    cidade?: string
-    estado?: string
-  }
-  produtos: Array<{
-    codigo?: string
-    nome: string
-    categoria: string
-    quantidade: number
-    preco: number
-    zoneamento?: string
-  }>
-  servicos: Array<{
-    codigo?: string
-    nome: string
-    quantidade: number
-    preco: number
-  }>
-  total: number
-  metodoPagamento: string
-  vendedor: {
-    nome: string
-    telefone?: string
-    email?: string
-  }
-  observacoes?: string
-  zoneamento?: string
-  senhas?: {
-    senha?: string
-    contraSenha?: string
-    palavraCoacao?: string
-  }
+interface ProdutoVendaPDF {
+  codigo?: string;
+  nome: string;
+  quantidade: number;
+  preco: number;
+  categoria?: string;
+  zoneamento?: string;
+}
+
+interface ServicoVendaPDF {
+  codigo?: string;
+  nome: string;
+  quantidade: number;
+  preco: number;
+}
+
+interface ClientePDF {
+  nome: string;
+  codigo?: string;
+  telefone?: string;
+  email?: string;
+  endereco?: string;
+  cidade?: string;
+  estado?: string;
+}
+
+interface VendedorPDF {
+  nome: string;
+  email?: string;
+  telefone?: string;
+}
+
+export interface VendaParaPDF {
+  id: number;
+  data: string;
+  cliente: ClientePDF;
+  produtos: ProdutoVendaPDF[];
+  servicos: ServicoVendaPDF[];
+  total: number;
+  metodoPagamento: string;
+  vendedor: VendedorPDF;
+  observacoes?: string;
+  zoneamento?: string;
+  proposta?: string;
+  contrato?: string;
 }
 
 export function generatePDFContent(venda: VendaParaPDF): string {
@@ -265,6 +277,7 @@ export function generatePDFContent(venda: VendaParaPDF): string {
 // Função principal para gerar e baixar PDF diretamente
 export async function downloadPDF(venda: VendaParaPDF): Promise<void> {
   try {
+    console.log("Iniciando geração do PDF para a venda:", venda)
     // Import jsPDF dinamicamente
     const { default: jsPDF } = await import("jspdf")
 
@@ -641,65 +654,60 @@ export function openPDFInNewTab(venda: VendaParaPDF): void {
 
 // Função utilitária para converter dados da venda para o formato do PDF
 export function convertVendaForPDF(
-  venda: Venda,
-  cliente: Cliente,
-  produtos: ProdutoSelecionado[],
-  user: User,
-  servicos: Array<{ codigo?: string; nome: string; quantidade: number; preco: number }> = [],
-  zoneamento?: string,
-  senhas?: { senha?: string; contraSenha?: string; palavraCoacao?: string },
+  venda: any,
+  cliente: any,
+  itens: any[],
+  user: any
 ): VendaParaPDF {
-  // Separe produtos e serviços conforme a categoria
-  const produtosList: VendaParaPDF["produtos"] = []
-  const servicosList: VendaParaPDF["servicos"] = [...servicos]
+  // Separar produtos e serviços
+  const produtos: ProdutoVendaPDF[] = [];
+  const servicos: ServicoVendaPDF[] = [];
 
-  produtos.forEach((p) => {
-    const categoria = p.product_type || (p as any).categoria || "N/A"
-    if (categoria.trim().toUpperCase() === "SERVIÇOS" || categoria.trim().toUpperCase() === "SERVICO" || categoria.trim().toUpperCase() === "SERVIÇO") {
-      servicosList.push({
-        codigo: (p as any).codigo ?? undefined,
-        nome: p.name,
-        quantidade: (p as any).quantidade ?? (p as any).quantity ?? 1,
-        preco: p.price,
-      })
+  itens.forEach(item => {
+    if (item.isService) {
+      servicos.push({
+        codigo: item.service_id?.toString() || item.product_id?.toString(),
+        nome: item.name,
+        quantidade: item.quantity || 1,
+        preco: item.price || 0
+      });
     } else {
-      produtosList.push({
-        codigo: (p as any).codigo ?? undefined,
-        nome: p.name,
-        categoria,
-        quantidade: (p as any).quantidade ?? (p as any).quantity ?? 1,
-        preco: p.price,
-        zoneamento: (p as any).zoneamento ?? (p as any).zoning ?? "",
-      })
+      produtos.push({
+        codigo: item.product_id?.toString(),
+        nome: item.name,
+        quantidade: item.quantity || 1,
+        preco: item.price || 0,
+        categoria: item.product_type || 'Produto',
+        zoneamento: item.zoneamento || item.zoning
+      });
     }
-  })
+  });
 
   return {
-    id: (venda as any).sale_id ?? venda.id ?? 0,
+    id: venda.sale_id || venda.id || 0,
     data: venda.date,
-    proposta: venda.proposta,
-    contrato: venda.contrato,
     cliente: {
-      nome: cliente.name,
-      cpf: cliente.tipo === "fisica" ? cliente.contato : undefined,
-      cnpj: cliente.tipo === "juridica" ? cliente.contato : undefined,
-      telefone: cliente.contato,
+      nome: cliente.name || 'Cliente não informado',
+      codigo: cliente.customer_id?.toString(),
+      telefone: cliente.contact || cliente.telefone,
       email: cliente.email,
-      endereco: (cliente as any).adress ?? cliente.endereco,
+      endereco: cliente.adress || cliente.endereco,
       cidade: cliente.cidade,
-      estado: cliente.estado,
+      estado: cliente.estado
     },
-    produtos: produtosList,
-    servicos: servicosList,
-    total: venda.amount,
-    metodoPagamento: venda.payment_method || "dinheiro",
+    produtos,
+    servicos,
+    total: venda.amount || venda.total || 0,
+    metodoPagamento: venda.payment_method || 'Não informado',
     vendedor: {
       nome: user.name,
-      telefone: user.telefone,
       email: user.email,
+      telefone: user.telefone
     },
-    observacoes: (venda as any).observation ?? venda.observacoes,
-    zoneamento: (venda as any).zoning ?? zoneamento,
-    senhas: senhas,
-  }
+    observacoes: venda.observation || venda.observacoes,
+    zoneamento: itens.find(i => i.zoneamento)?.zoneamento || 
+               itens.find(i => i.zoning)?.zoning,
+    proposta: venda.proposta,
+    contrato: venda.contrato
+  };
 }

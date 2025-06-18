@@ -60,6 +60,14 @@ export interface Venda {
     total_sales: number
     zoneamento?: string
   }>
+  services: Array<{
+    service_id: number
+    quantidade: number
+    price: number
+    service_price: number
+    total_sales: number
+    zoneamento?: string
+  }>
   payment_method: string
   total: number
   amount: number
