@@ -302,9 +302,9 @@ export default function SalesPage() {
       case 0:
         return clienteSelecionado !== null
       case 1:
-        return Array.isArray(produtosSelecionados) && produtosSelecionados.length > 0
+        return Array.isArray(produtosSelecionados) && produtosSelecionados.length > 0 || servicosSelecionados.length > 0
       case 2:
-        return Array.isArray(servicosSelecionados) && servicosSelecionados.length > 0
+        return Array.isArray(servicosSelecionados) && servicosSelecionados.length > 0 || produtosSelecionados.length > 0
       case 3:
         return (
           (Array.isArray(produtosSelecionados) && produtosSelecionados.length > 0) ||
@@ -709,6 +709,7 @@ export default function SalesPage() {
                       disabled={!canProceedToNextStep() || isPending}
                       size="sm"
                       className="w-full sm:w-auto order-3 bg-red-700 hover:bg-red-800"
+                      data-testid="next-step-button"
                     >
                       Próximo
                       <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

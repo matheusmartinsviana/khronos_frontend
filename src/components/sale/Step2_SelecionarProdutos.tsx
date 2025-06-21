@@ -263,7 +263,7 @@ const Step2_SelecionarProdutos: React.FC<Step2Props> = ({
                     className={`${viewMode === "grid" ? "max-h-96 lg:max-h-[500px] overflow-y-auto pr-2" : "max-h-96 lg:max-h-[500px] overflow-auto"} w-full`}
                 >
                     {viewMode === "grid" ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="produtos-grid">
                             {produtosPaginados.map((produto) => (
                                 <ProdutoCard
                                     key={produto.product_id}

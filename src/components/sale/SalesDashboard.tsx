@@ -311,7 +311,7 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ onIniciarVenda, onShowN
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
                         <span className="sm:hidden">Nova Venda</span>
-                        <span className="hidden sm:inline">Iniciar Nova Venda</span>
+                        <span className="hidden sm:inline" data-testid="start-sale_button" >Iniciar Nova Venda</span>
                     </button>
                 </div>
 

@@ -28,17 +28,17 @@ const Step1_SelecionarCliente: React.FC<Step1Props> = ({ onClienteSelect, client
       const response = await getCustomers()
       const clientesFormatados: Cliente[] = Array.isArray(response.data)
         ? response.data.map((item: any) => ({
-            id: item.customer_id,
-            customer_id: item.customer_id,
-            name: item.name || "Nome não informado",
-            email: item.email,
-            contato: item.contact,
-            observacoes: item.observation,
-            endereco: item.adress,
-            cep: item.cep,
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
-          }))
+          id: item.customer_id,
+          customer_id: item.customer_id,
+          name: item.name || "Nome não informado",
+          email: item.email,
+          contato: item.contact,
+          observacoes: item.observation,
+          endereco: item.adress,
+          cep: item.cep,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+        }))
         : []
       setClientes(clientesFormatados)
     } catch (error) {
@@ -56,11 +56,11 @@ const Step1_SelecionarCliente: React.FC<Step1Props> = ({ onClienteSelect, client
 
   const clientesFiltrados = Array.isArray(clientes)
     ? clientes.filter(
-        (cliente) =>
-          cliente.name?.toLowerCase().includes(filtro.toLowerCase()) ||
-          cliente.contato?.includes(filtro) ||
-          cliente.email?.toLowerCase().includes(filtro.toLowerCase()),
-      )
+      (cliente) =>
+        cliente.name?.toLowerCase().includes(filtro.toLowerCase()) ||
+        cliente.contato?.includes(filtro) ||
+        cliente.email?.toLowerCase().includes(filtro.toLowerCase()),
+    )
     : []
 
   const handleNovoCliente = async (novoCliente: Cliente) => {
@@ -80,15 +80,15 @@ const Step1_SelecionarCliente: React.FC<Step1Props> = ({ onClienteSelect, client
   }
 
   const renderGridView = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4" data-testid="clientes-grid">
       {clientesFiltrados.map((cliente) => (
         <div
           key={cliente.id || cliente.customer_id}
-          className={`border rounded p-3 cursor-pointer transition-all duration-200 ${
-            isClienteSelected(cliente)
-              ? "border-red-700 bg-red-50 shadow-md"
-              : "bg-white hover:bg-gray-50 hover:shadow-sm border-gray-200"
-          }`}
+          data-testid={`cliente-card`}
+          className={`border rounded p-3 cursor-pointer transition-all duration-200 ${isClienteSelected(cliente)
+            ? "border-red-700 bg-red-50 shadow-md"
+            : "bg-white hover:bg-gray-50 hover:shadow-sm border-gray-200"
+            }`}
           onClick={() => handleSelectCliente(cliente)}
         >
           <h4 className="text-gray-800 font-medium text-base mb-2 truncate">{cliente.name}</h4>
@@ -129,9 +129,8 @@ const Step1_SelecionarCliente: React.FC<Step1Props> = ({ onClienteSelect, client
           {clientesFiltrados.map((cliente) => (
             <tr
               key={cliente.id || cliente.customer_id}
-              className={`cursor-pointer transition-colors duration-200 ${
-                isClienteSelected(cliente) ? "bg-red-50 border-l-4 border-l-red-700" : "hover:bg-gray-50"
-              }`}
+              className={`cursor-pointer transition-colors duration-200 ${isClienteSelected(cliente) ? "bg-red-50 border-l-4 border-l-red-700" : "hover:bg-gray-50"
+                }`}
               onClick={() => handleSelectCliente(cliente)}
             >
               <td className="px-4 py-3 whitespace-nowrap">
@@ -179,18 +178,16 @@ const Step1_SelecionarCliente: React.FC<Step1Props> = ({ onClienteSelect, client
           <div className="flex items-center border border-gray-300 rounded">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 transition-colors duration-200 ${
-                viewMode === "grid" ? "bg-red-700 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
-              }`}
+              className={`p-2 transition-colors duration-200 ${viewMode === "grid" ? "bg-red-700 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
               title="Visualização em Grid"
             >
               <Grid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode("table")}
-              className={`p-2 transition-colors duration-200 ${
-                viewMode === "table" ? "bg-red-700 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
-              }`}
+              className={`p-2 transition-colors duration-200 ${viewMode === "table" ? "bg-red-700 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
               title="Visualização em Tabela"
             >
               <List className="w-4 h-4 " />

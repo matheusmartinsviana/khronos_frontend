@@ -111,7 +111,7 @@ const Notification: React.FC<NotificationProps> = ({ notification, onClose }) =>
           }
         `}
             </style>
-            <div style={notificationStyle}>
+            <div data-testid="notification" style={notificationStyle} >
                 <span style={{ fontSize: "14px", fontWeight: "bold" }}>{getIcon()}</span>
                 <span style={{ flex: 1, fontSize: "14px" }}>{notification.message}</span>
                 <button onClick={onClose} style={closeButtonStyle}>

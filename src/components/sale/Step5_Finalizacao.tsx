@@ -672,7 +672,7 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
                     {tentativasEnvio > 0 ? `Tentativa ${tentativasEnvio} de 3...` : "Finalizando Venda..."}
                   </>
                 ) : (
-                  <>
+                  <div data-testid="finalizar-venda-button" className="flex items-center justify-center">
                     <Check className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />
                     Finalizar Venda - {formatarPreco(total)}
                     {mostrarParcelas && numeroParcelas > 1 && (
@@ -680,7 +680,7 @@ const Step5_Finalizacao: React.FC<Step5Props> = ({
                         ({numeroParcelas}x de {formatarPreco(valorParcela)})
                       </span>
                     )}
-                  </>
+                  </div>
                 )}
               </Button>
 
