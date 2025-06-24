@@ -1,6 +1,7 @@
 # Khronos | Sistema de Vendas (SFA)
 
 Este repositório contém o desenvolvimento de um sistema web criado como parte do Trabalho de Conclusão de Semestre (TCS) no Senac, em parceria com a empresa **Khronos**.
+
 ---
 
 ## ✨ Funcionalidades
