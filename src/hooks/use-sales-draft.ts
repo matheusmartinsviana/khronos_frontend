@@ -2,10 +2,11 @@
 
 import { useCallback } from "react"
 import { useLocalStorage } from "./use-local-storage"
-import type { Cliente, ProdutoSelecionado, ServicoSelecionado } from "@/types"
+import type { Cliente, Environment, ProdutoSelecionado, ServicoSelecionado } from "@/types"
 
 interface SalesDraft {
   currentStep: number
+  ambienteSelecionado: Environment | null
   clienteSelecionado: Cliente | null
   produtosSelecionados: ProdutoSelecionado[]
   servicosSelecionados: ServicoSelecionado[]
@@ -25,6 +26,7 @@ export function useSalesDraft() {
     (draftData: Partial<SalesDraft>) => {
       setDraft((prev) => ({
         currentStep: 0,
+        ambienteSelecionado: null,
         clienteSelecionado: null,
         produtosSelecionados: [],
         servicosSelecionados: [],

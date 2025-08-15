@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { Check, User, Package, Wrench, ClipboardList, CheckCircle } from "lucide-react"
+import { Check, User, Package, Wrench, ClipboardList, CheckCircle, AlignEndVerticalIcon, MapPinHouse } from "lucide-react"
 
 interface StepperProps {
     currentStep: number
@@ -14,14 +14,17 @@ const Stepper: React.FC<StepperProps> = ({ currentStep, steps, onStepClick }) =>
     const getStepIcon = (index: number) => {
         switch (index) {
             case 0:
-                return <User className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+                //icone relacionado a ambiente de produtos
+                return <MapPinHouse className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
             case 1:
-                return <Package className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+                return <User className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
             case 2:
-                return <Wrench className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+                return <Package className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
             case 3:
-                return <ClipboardList className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+                return <Wrench className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
             case 4:
+                return <ClipboardList className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+            case 5:
                 return <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
             default:
                 return <span className="text-xs sm:text-sm lg:text-base font-semibold">{index + 1}</span>

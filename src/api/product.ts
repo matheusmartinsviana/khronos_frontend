@@ -5,3 +5,4 @@ export const getProductById = (id: string) => api.get(`/product/${id}`);
 export const createProduct = (data: any) => api.post('/product', data);
 export const updateProduct = (id: string, data: any) => api.put(`/product/${id}`, data);
 export const deleteProduct = (id: string) => api.delete(`/product/${id}`);
+export const getProductsByEnvironmentId = (environmentId: string) => api.get(`/product/search/environment/${environmentId}`);

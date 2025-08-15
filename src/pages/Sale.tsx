@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useTransition, useEffect } from "react"
-import type { Cliente, ProdutoSelecionado, ServicoSelecionado, Venda, NotificationState } from "@/types"
+import type { Cliente, ProdutoSelecionado, ServicoSelecionado, Venda, NotificationState, Environment } from "@/types"
 import { downloadPDF, convertVendaForPDF } from "@/lib/generate-pdf"
 import { generateReportHTML, prepareEmailData } from "@/lib/email-utils"
 import { sendEmail, type EmailData } from "@/api/email"
@@ -19,11 +19,13 @@ import Step3_SelecionarServicos from "@/components/sale/Step3_SelecionarServicos
 import Step4_RevisaoProdutos from "@/components/sale/Step4_RevisaoProdutosEServicos"
 import Step5_Finalizacao from "@/components/sale/Step5_Finalizacao"
 import EmailPreviewModal from "@/components/EmailPreviewModal"
+import Step0_SelecionarAmbiente from "@/components/sale/Step0_SelecionarAmbiente"
 
 export default function SalesPage() {
   const { user } = useUser()
   const [showSalesProcess, setShowSalesProcess] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
+  const [ambienteSelecionado, setAmbienteSelecionado] = useState<Environment | null>(null)
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
   const [produtosSelecionados, setProdutosSelecionados] = useState<ProdutoSelecionado[]>([])
   const [servicosSelecionados, setServicosSelecionados] = useState<ServicoSelecionado[]>([])
@@ -46,6 +48,7 @@ export default function SalesPage() {
   const [isInitialized, setIsInitialized] = useState(false)
 
   const steps = [
+    "Selecionar Ambiente",
     "Selecionar Cliente",
     "Selecionar Produtos",
     "Selecionar Serviços",
@@ -191,6 +194,10 @@ export default function SalesPage() {
     setClienteSelecionado(cliente)
   }, [])
 
+  const handleAmbienteSelect = useCallback((ambiente: Environment) => {
+    setAmbienteSelecionado(ambiente)
+  }, [])
+
   const handleAdicionarProduto = useCallback((produto: ProdutoSelecionado) => {
     // Verificar se é uma ação de remoção (toggle)
     if (produto._action === "remove") {
@@ -300,18 +307,20 @@ export default function SalesPage() {
   const canProceedToNextStep = useCallback(() => {
     switch (currentStep) {
       case 0:
-        return clienteSelecionado !== null
+        return ambienteSelecionado !== null
       case 1:
-        return Array.isArray(produtosSelecionados) && produtosSelecionados.length > 0 || servicosSelecionados.length > 0
+        return clienteSelecionado !== null
       case 2:
-        return Array.isArray(servicosSelecionados) && servicosSelecionados.length > 0 || produtosSelecionados.length > 0
+        return Array.isArray(produtosSelecionados) && produtosSelecionados.length > 0 || servicosSelecionados.length > 0
       case 3:
+        return Array.isArray(servicosSelecionados) && servicosSelecionados.length > 0 || produtosSelecionados.length > 0
+      case 4:
         return (
           (Array.isArray(produtosSelecionados) && produtosSelecionados.length > 0) ||
           (Array.isArray(servicosSelecionados) && servicosSelecionados.length > 0)
         )
-      case 4:
-        return false // Última etapa
+      case 5:
+        return false
       default:
         return false
     }
@@ -640,6 +649,13 @@ export default function SalesPage() {
           <Card className="w-full shadow-lg border-gray-200">
             <CardContent className="p-0">
               {currentStep === 0 && (
+                <Step0_SelecionarAmbiente
+                  onEnvironmentSelect={handleAmbienteSelect}
+                  environmentSelecionado={ambienteSelecionado}
+                  onShowNotification={showNotification}
+                />
+              )}
+              {currentStep === 1 && (
                 <Step1_SelecionarCliente
                   onClienteSelect={handleClienteSelect}
                   clienteSelecionado={clienteSelecionado}
@@ -647,23 +663,25 @@ export default function SalesPage() {
                 />
               )}
 
-              {currentStep === 1 && (
+              {currentStep === 2 && (
                 <Step2_SelecionarProdutos
+                  environment_id={ambienteSelecionado?.environment_id}
                   produtosSelecionados={produtosSelecionados}
                   onAdicionarProduto={handleAdicionarProduto}
                   onShowNotification={showNotification}
                 />
               )}
 
-              {currentStep === 2 && (
+              {currentStep === 3 && (
                 <Step3_SelecionarServicos
+                  environment_id={ambienteSelecionado?.environment_id}
                   servicosSelecionados={servicosSelecionados}
                   onAdicionarServico={handleAdicionarServico}
                   onShowNotification={showNotification}
                 />
               )}
 
-              {currentStep === 3 && (
+              {currentStep === 4 && (
                 <Step4_RevisaoProdutos
                   produtos={produtosSelecionados}
                   servicos={servicosSelecionados}
@@ -675,7 +693,7 @@ export default function SalesPage() {
                 />
               )}
 
-              {currentStep === 4 && clienteSelecionado && (
+              {currentStep === 5 && clienteSelecionado && (
                 <Step5_Finalizacao
                   cliente={clienteSelecionado}
                   produtos={produtosSelecionados}
