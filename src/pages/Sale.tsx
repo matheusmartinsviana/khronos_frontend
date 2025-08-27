@@ -60,6 +60,7 @@ export default function SalesPage() {
   useEffect(() => {
     if (!isInitialized && hasDraft() && draft) {
       setCurrentStep(draft.currentStep)
+      setAmbienteSelecionado(draft.ambienteSelecionado)
       setClienteSelecionado(draft.clienteSelecionado)
       setProdutosSelecionados(draft.produtosSelecionados)
       setServicosSelecionados(draft.servicosSelecionados)
@@ -80,11 +81,12 @@ export default function SalesPage() {
     const autoSaveTimer = setTimeout(() => {
       if (
         showSalesProcess &&
-        (clienteSelecionado || produtosSelecionados.length > 0 || servicosSelecionados.length > 0)
+        (ambienteSelecionado || clienteSelecionado || produtosSelecionados.length > 0 || servicosSelecionados.length > 0)
       ) {
         setIsSaving(true)
         saveDraft({
           currentStep,
+          ambienteSelecionado,
           clienteSelecionado,
           produtosSelecionados,
           servicosSelecionados,
@@ -99,6 +101,7 @@ export default function SalesPage() {
     return () => clearTimeout(autoSaveTimer)
   }, [
     currentStep,
+    ambienteSelecionado,
     clienteSelecionado,
     produtosSelecionados,
     servicosSelecionados,
@@ -160,7 +163,7 @@ export default function SalesPage() {
       console.error("Erro ao gerar preview do email:", error)
       showNotification("error", "Erro ao gerar preview do email")
     }
-  }, [vendaFinalizada, clienteSelecionado, produtosSelecionados, servicosSelecionados, user, showNotification])
+  }, [vendaFinalizada, ambienteSelecionado, clienteSelecionado, produtosSelecionados, servicosSelecionados, user, showNotification])
 
   // Função para confirmar envio do email
   const handleConfirmSendEmail = useCallback(async () => {
