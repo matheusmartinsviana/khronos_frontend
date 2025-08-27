@@ -3,7 +3,7 @@
 import type React from "react"
 import { useEffect, useState, useCallback, memo, useMemo } from "react"
 import type { Produto, ProdutoSelecionado, Categoria } from "@/types"
-import { getProducts } from "@/api/product"
+import { getProducts, getProductsByEnvironmentId } from "@/api/product"
 import { getCategories } from "@/api/category"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Check, Grid, List, ShoppingCart, Package } from "lucide-react"
 
 interface Step2Props {
+    environment_id: any
     produtosSelecionados: ProdutoSelecionado[]
     onAdicionarProduto: (produto: ProdutoSelecionado) => void
     onShowNotification: (type: "success" | "error" | "info", message: string) => void
@@ -92,6 +93,7 @@ const ProdutoCard = memo(
 ProdutoCard.displayName = "ProdutoCard"
 
 const Step2_SelecionarProdutos: React.FC<Step2Props> = ({
+    environment_id,
     produtosSelecionados = [],
     onAdicionarProduto,
     onShowNotification,
@@ -110,7 +112,7 @@ const Step2_SelecionarProdutos: React.FC<Step2Props> = ({
         const fetchData = async () => {
             try {
                 setLoading(true)
-                const [prodRes, catRes] = await Promise.all([getProducts(), getCategories()])
+                const [prodRes, catRes] = await Promise.all([getProductsByEnvironmentId(environment_id), getCategories()])
                 setProdutos(Array.isArray(prodRes.data) ? prodRes.data : [])
                 setCategorias(Array.isArray(catRes.data) ? catRes.data : [])
             } catch (error) {

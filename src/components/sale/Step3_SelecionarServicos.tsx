@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useEffect, useState, useCallback, memo, useMemo } from "react"
-import { getServices } from "@/api/service"
+import { getServices, getServicesByEnvironmentId } from "@/api/service"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -24,9 +24,11 @@ interface Servico {
     createdAt: string
     updatedAt: string
     service_id?: number // Adicionado para compatibilidade
+    environment_id?: any
 }
 
 interface Step3Props {
+    environment_id: any
     servicosSelecionados: ServicoSelecionado[]
     onAdicionarServico: (servico: ServicoSelecionado) => void
     onShowNotification: (type: "success" | "error" | "info", message: string) => void
@@ -110,6 +112,7 @@ const ServicoCard = memo(
 ServicoCard.displayName = "ServicoCard"
 
 const Step3_SelecionarServicos: React.FC<Step3Props> = ({
+    environment_id,
     servicosSelecionados = [],
     onAdicionarServico,
     onShowNotification,
@@ -130,7 +133,7 @@ const Step3_SelecionarServicos: React.FC<Step3Props> = ({
         const fetchData = async () => {
             try {
                 setLoading(true)
-                const response = await getServices()
+                const response = await getServicesByEnvironmentId(environment_id)
                 console.log("Serviços recebidos:", response.data)
 
                 // Garantir que todos os serviços tenham IDs válidos

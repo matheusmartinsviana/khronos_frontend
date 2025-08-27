@@ -135,3 +135,11 @@ export interface User {
   email: string
   role?: string
 }
+
+export interface Environment {
+  environment_id?: string | number
+  name: string
+  description?: string
+  createdAt?: string
+  updatedAt?: string
+}
